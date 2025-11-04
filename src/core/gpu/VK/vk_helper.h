@@ -62,7 +62,7 @@ void DestroyRenderpass(VkDevice device);
 VkImageView CreateImageView(VkDevice device, VkImage image, VkImageViewType dem, VkFormat format);
 void DestroyImageView(VkDevice device, VkImageView view);
 
-VkBuffer CreateBuffer(VkDevice device, size_t bytes, const VkBufferUsageFlags usage);
+VkResult CreateBuffer(VkDevice device, VkBuffer* buf, size_t bytes, const VkBufferUsageFlags usage);
 void DestroyBuffer(VkDevice device, VkBuffer buffer);
 
 

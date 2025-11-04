@@ -311,8 +311,7 @@ void vkh::DestroyImageView(VkDevice device, VkImageView view){
 
 };
 
-VkBuffer vkh::CreateBuffer(VkDevice device, size_t bytes, const VkBufferUsageFlags usage){
-  VkBuffer ret;
+VkResult vkh::CreateBuffer(VkDevice device, VkBuffer* buf, size_t bytes, const VkBufferUsageFlags usage){
   VkBufferCreateInfo cBuffer{};
     cBuffer.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     cBuffer.pNext = nullptr;
@@ -322,8 +321,8 @@ VkBuffer vkh::CreateBuffer(VkDevice device, size_t bytes, const VkBufferUsageFla
     cBuffer.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     cBuffer.queueFamilyIndexCount = 0 ;
     cBuffer.pQueueFamilyIndices = nullptr;
-    vkcall(vkCreateBuffer(device, &cBuffer, nullptr, &ret))
-    return ret;
+    return vkCreateBuffer(device, &cBuffer, nullptr, buf);
+
 }
 
 
