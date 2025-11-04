@@ -16,6 +16,7 @@ set(files
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/ssf.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/gpu/VK/vk_core.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/gpu/VK/vk_helper.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/gpu/VK/MemoryVK/MemoryVK.cpp"
   
 )
 
@@ -31,6 +32,7 @@ set(lib_directories
 set(include_directories
   ${root}/include
   ${root}/src
+  ${root}/external/bcl/src/include
   ${root}/external/bcl/src/include
 )
 
