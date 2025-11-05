@@ -91,17 +91,46 @@ int VK::CreateGraphicsState(Device& applicationDevice){
   cCommandPool.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
   cCommandPool.pNext = nullptr;
   cCommandPool.flags = 0;
-  cCommandPool.queueFamilyIndex = 1;
+  cCommandPool.queueFamilyIndex = 0;
   vkcall(vkCreateCommandPool(device, &cCommandPool, nullptr, &graphicsPool))
 
+
+  VkCommandPoolCreateInfo cCommandPool2{};
+  cCommandPool.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+  cCommandPool.pNext = nullptr;
+  cCommandPool.flags = 0;
+  cCommandPool.queueFamilyIndex = 1;
+  vkcall(vkCreateCommandPool(device, &cCommandPool, nullptr, &transferPool))
+
   VkCommandBufferAllocateInfo aCommandBuffer{};
-   aCommandBuffer.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-   aCommandBuffer.pNext = nullptr;
-   aCommandBuffer.commandPool = graphicsPool;
-   aCommandBuffer.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-   aCommandBuffer.commandBufferCount = 1;
+  aCommandBuffer.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  aCommandBuffer.pNext = nullptr;
+  aCommandBuffer.commandPool = graphicsPool;
+  aCommandBuffer.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  aCommandBuffer.commandBufferCount = 1;
 
   vkcall(vkAllocateCommandBuffers(device, &aCommandBuffer, &mainCommandBuffer))
+
+  vkcall(vkh::CreateBuffer(device, &stagingBuffers[0].first, _StagingBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT))
+  vkcall(vkh::CreateBuffer(device, &stagingBuffers[1].first, _StagingBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT))
+
+  VkMemoryRequirements req{};
+  vkGetBufferMemoryRequirements(device, stagingBuffers[0].first, &req);
+  vkcall(MemoryVK::Allocate(device, &stagingBuffers[0].second, req.size, _MacosHostAccessFlag))
+  vkcall(vkBindBufferMemory(device, stagingBuffers[0].first, stagingBuffers[0].second, 0))
+
+  vkGetBufferMemoryRequirements(device, stagingBuffers[1].first, &req);
+  vkcall(MemoryVK::Allocate(device, &stagingBuffers[1].second, req.size, _MacosHostAccessFlag))
+  vkcall(vkBindBufferMemory(device, stagingBuffers[1].first, stagingBuffers[1].second, 0))
+
+  vkcall(vkAllocateCommandBuffers(device, &aCommandBuffer, &mainCommandBuffer))
+
+  VkFenceCreateInfo cFence;
+    cFence.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    cFence.pNext = nullptr;
+    cFence.flags = 0;
+    vkcall(vkCreateFence(device, &cFence, nullptr, &mainFence))
+
 
   return 0;
 }
@@ -181,21 +210,54 @@ void VK::Draw(){
 
 void VK::TestTriangle(){
 
-  VkDeviceMemory a;
-  vkcall(MemoryVK::Allocate(device, &a, 10, 0))
+  VkMemoryRequirements req{};
 
   //vertex buffer
-  _TmpCube.vbo = vkh::CreateBuffer(device, _TmpCube.data.VertexBytes, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+  vkcall(vkh::CreateBuffer(device,&_TmpCube.vbo, _TmpCube.data.VertexBytes, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+                            VK_BUFFER_USAGE_TRANSFER_DST_BIT))
+
+  vkGetBufferMemoryRequirements(device, _TmpCube.vbo, &req);
+  _TmpCube.vDataSize = req.size;
+  vkcall(MemoryVK::Allocate(device, &_TmpCube.vHandle, req.size, _MacosHostAccessFlag))
+  vkcall(vkBindBufferMemory(device, _TmpCube.vbo, _TmpCube.vHandle, 0))
 
   //index buffer
-  _TmpCube.ibo = vkh::CreateBuffer(device, _TmpCube.data.IndiceBytes, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+  vkcall(vkh::CreateBuffer(device, &_TmpCube.ibo, _TmpCube.data.IndiceBytes, VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
+                          VK_BUFFER_USAGE_TRANSFER_DST_BIT))
+
+  vkGetBufferMemoryRequirements(device, _TmpCube.ibo, &req);
+  _TmpCube.iDataSize = req.size;
+  vkcall(MemoryVK::Allocate(device, &_TmpCube.iHandle, req.size, _MacosHostAccessFlag))
 
 
+  void* dat;
+  vkcall(vkMapMemory(device, stagingBuffers[0].second, 0, _TmpCube.data.VertexBytes, 0, &dat))
+  memcpy(dat, _TmpCube.data.vertices, _TmpCube.data.VertexBytes);
+
+  VkBufferCopy copyRegion;
+  copyRegion.srcOffset = 0;
+  copyRegion.dstOffset = 0;
+  copyRegion.size = static_cast<uint64_t>(_TmpCube.data.VertexBytes);
+
+  VkCommandBufferBeginInfo beginInfo{};
+  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+  vkBeginCommandBuffer(mainCommandBuffer, &beginInfo);
+  vkCmdCopyBuffer(mainCommandBuffer, stagingBuffers[0].first, _TmpCube.vbo, 1, &copyRegion);
+  vkEndCommandBuffer(mainCommandBuffer);
+
+  VkSubmitInfo submitInfo{};
+  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  submitInfo.pNext = nullptr;
+  submitInfo.commandBufferCount = 1;
+  submitInfo.pCommandBuffers = &mainCommandBuffer;
+
+  vkcall(vkQueueSubmit(transferQueue, 1, &submitInfo, mainFence))
+  vkcall(vkQueueWaitIdle(transferQueue))
 
   //texture 
-
   //constantbuffer
-
+  
 }
 
 void VK::Destroy(){
@@ -206,68 +268,3 @@ void VK::Destroy(){
   vkDestroyInstance(instance, nullptr);
 
 }
-
-struct dat{ 
-  uint32_t flags; //4
-  size_t bytes; //8
-};//pad4
-
-struct Node{
-  dat data; //16
-  uint32_t* next;//8
-};//24
-
-struct Heap{
-  Heap* next; //8
-  Node node; //24
-};//32
-  
-int x = sizeof(Heap);
-
-
-struct fdat{
-uint32_t flags;//4
-  size_t bytes; //8
-};//16
-
-struct fNode{
-  uint8_t next;//1
-  dat data;//12
-};//24
-
-1->2->6->8->16
-struct fHeap{
-  uint8_t next; //1
-  Node node; //24
-};//32
-
-
-int n = sizeof(fHeap);
-
-/**
-      [Heap]
-        /\
-       /  \
-      /    \
-     /      \
-  [node]    [Heap]
-    /\        /\
-   /  [dat]   etc..
-  /
- [type*] 
- /
- /
-
-
- then after we build it we collapse to flat buffer
-
-              contigues
- [|Heap||dat|type-0|type-1||Heap||dat|type-0]
- [|Heap {Next} {node}->|type-0| -> |type-1||Heap {Next} {node}->|type-0|]
-
- //we can get a heaps types by heap + dat and thats a list
- //and we also have a list of heaps
- //all contigues in memory making it fast and scalable.
- //and this will never really changed after the first flatten unless we switch gpu
- //but we could just build it back up
-*/
