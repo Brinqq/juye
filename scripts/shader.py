@@ -34,7 +34,10 @@ shader_folder = Path(Path(__file__).parent.parent.__str__().__add__("/data/shade
 def compile_shader(path: str, name: str, type_arg: str):
     out = "-o" + OUT_FOLDER + name + OUT_EXTENSION
 
-    subprocess.run( [COMPILER.__str__(), type_arg, path, out])
+    res = subprocess.run( [COMPILER.__str__(), type_arg, path, out]).returncode
+    if res != 0:
+        print("Failure compiling shader - " + name)
+        return
     print("shader compiled finished - " + name)
     return True
 
