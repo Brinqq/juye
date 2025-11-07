@@ -20,6 +20,7 @@ set(files
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/gpu/VK/vk_core.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/gpu/VK/vk_helper.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/gpu/VK/vk_internal.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/gpu/VK/vk_wrappers.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/gpu/VK/MemoryVK/MemoryVK.cpp"
 )
 
