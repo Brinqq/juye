@@ -16,3 +16,32 @@ struct QueueFamily{
   uint8_t maxQueues;
   QueueBitTypes bits;
 };
+
+
+namespace ivk{
+
+struct HostWriteBuffer{
+  VkBuffer buf;
+  VkDeviceSize bytes;
+  size_t bump;
+};
+
+
+struct PipelineShaders{
+  VkShaderModule vertex;
+  VkShaderModule pixel;
+};
+
+constexpr VkFormat _supportedFormats = {
+  
+};
+
+class RequiredFeatures{
+
+};
+
+class FeatureSet : public RequiredFeatures{
+    bool validation = false;   
+  };
+
+}
