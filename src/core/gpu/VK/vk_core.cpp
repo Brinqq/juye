@@ -376,13 +376,54 @@ void VK::TestTriangle(){
   vkWaitForFences(device, 1, &mainFence, VK_TRUE, UINT64_MAX);
 
   //texture 
-  //create image
-  
-  VkImage tex;
-  VkImageCreateInfo cImage{};
-// cImage.sType = VK_STRUCTURE
-//   vkCreateImage(device, nullptr, &tex);
+  VkImage texture;
+  VkImageView textureView;
+  VkDeviceMemory texHandle;
 
+  //TODO: absolutly not valid
+  VkExtent3D exent{69, 69, 1};
+
+  vkcall(ivk::wrappers::CreateImage2D(device, VK_FORMAT_R8G8B8A8_SRGB, exent, 1,
+  VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_SAMPLE_COUNT_1_BIT,
+  VK_IMAGE_TILING_OPTIMAL, 1, &texture))
+
+  VkMemoryRequirements textureReq{};
+  vkGetImageMemoryRequirements(device, texture, &textureReq);
+  vkcall(MemoryVK::Allocate(device, &texHandle, textureReq.size, _macosDeviceLocalFlag))
+  vkcall(vkBindImageMemory(device, texture, texHandle, 0))
+
+  VkComponentMapping mappings{ VK_COMPONENT_SWIZZLE_R,
+    VK_COMPONENT_SWIZZLE_G,
+    VK_COMPONENT_SWIZZLE_B,
+    VK_COMPONENT_SWIZZLE_A
+  };
+
+  VkImageSubresourceRange range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+  ivk::wrappers::CreateImageView2D(device, texture, VK_FORMAT_R8G8B8A8_SRGB, mappings, range, &textureView);
+
+
+  ivk::TransitionImageLayoutData transtionData{
+    texture,
+    VK_ACCESS_NONE, VK_ACCESS_TRANSFER_WRITE_BIT,
+    VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    range
+  };
+  
+  vkResetCommandBuffer(mainCommandBuffer, 0);
+  ivk::wrappers::BeginCommandBuffer(mainCommandBuffer);
+  ivk::TransitionImageLayoutsOp(mainCommandBuffer, &transtionData, 1, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+  
+  // vkMapMemory()
+  // memcpy()
+  // vkUnmapMemory()
+  // vkCmdCopyBufferToImage();
+  
+  transtionData.prevAccess = VK_ACCESS_TRANSFER_WRITE_BIT;
+  transtionData.nextAccess = VK_ACCESS_SHADER_READ_BIT;
+  transtionData.prevLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+  transtionData.nextLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  ivk::TransitionImageLayoutsOp(mainCommandBuffer, &transtionData, 1, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+  ivk::wrappers::EndCommandBuffer(mainCommandBuffer);
 
   //constantbuffer
 }
@@ -395,3 +436,65 @@ void VK::Destroy(){
   vkDestroyInstance(instance, nullptr);
 
 }
+
+
+template<typename _Type, size_t _Size>
+class small_vec{
+  _Type hot_stack[_Size];
+  bool isFallback; //here in my implemetnation i store a single bit on the hot_stack  but for this example we will do this
+  _Type* first = hot_stack;
+  _Type* cur;
+  _Type* end;
+
+  void grow(){
+    _Type* new_mem = alloc((end - first) * 1.5);
+    move_or_copy_to_new(new_mem);
+
+    if(isFallback){
+      //if we are on heap we free else we dont
+      free(first);
+      first = new_mem;
+    }
+      first = new_mem;
+    //etc..
+
+  }
+
+public:
+_Type& push(_Type& val){
+  if(cur == end){
+    grow();
+  }
+  
+  *cur =  val;
+    
+  }
+
+  ~small_vec(){
+    if(isFallback){
+      free(first);
+    }
+  }
+  
+
+};
+
+class normal_vec{
+private:
+  _Type* first;
+  _Type* cur;
+  _Type* end;
+public:
+
+_Type& push(_Type& val){
+  if(cur == end){
+    grow();
+  }
+  
+  *cur =  val;
+    
+  }
+};
+
+
+

@@ -1,5 +1,7 @@
 #include "vk_internal.h"
 
+#include <bcl/containers/vector.h>
+
 #include <fstream>
 #include <assert.h>
 
@@ -200,13 +202,37 @@ void CopyBuffers(VkDevice device, VkCommandBuffer buf, CopyBufferOp* pCopyOp, ui
   VkBufferCopy region{};
 
   for(int i = 0; i < count; ++i){
-    region.srcOffset = pCopyOp[i].dstOffset;
+    region.srcOffset = pCopyOp[i].srcOffset;
     region.dstOffset = pCopyOp[i].dstOffset;
     region.size = pCopyOp[i].bytes;
     vkCmdCopyBuffer(buf, pCopyOp[i].src, pCopyOp[i].dst, 1, &region);
   }
 
   vkEndCommandBuffer(buf);
+}
+
+
+void TransitionImageLayoutsOp(VkCommandBuffer buf, TransitionImageLayoutData* pData, uint32_t count,
+                             VkPipelineStageFlags prev, VkPipelineStageFlags next){
+  bcl::small_vector<VkImageMemoryBarrier, 5> arr;
+
+  VkImageMemoryBarrier barrier{};
+  barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;;
+  barrier.pNext = nullptr;
+  barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+  for(int i = 0; i < count; ++i){
+    barrier.srcAccessMask = pData[i].prevAccess;
+    barrier.dstAccessMask = pData[i].nextAccess;
+    barrier.oldLayout = pData[i].prevLayout;
+    barrier.newLayout = pData[i].nextLayout;;
+    barrier.subresourceRange = pData[i].range;
+    barrier.image = pData[i].image;
+    arr.push_back(barrier);
+  }
+
+  vkCmdPipelineBarrier(buf, prev, next, 0, 0, nullptr, 0, nullptr, arr.size(), arr.data());
 }
 
 //utils

@@ -22,8 +22,7 @@ private:
   struct Semaphore{
    static constexpr int RenderReady = 0;
    static constexpr int RenderDone = 1;
-   static constexpr int RenderSwap = 1;
-
+   static constexpr int CopiesDone = 2;
    static constexpr int Count = 3;
   };
 
