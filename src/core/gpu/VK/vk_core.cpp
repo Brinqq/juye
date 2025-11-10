@@ -25,7 +25,7 @@ void VK::SwapBackBuffers(){
 }
 
 int VK::CreateGraphicsState(Device& applicationDevice){
-
+  
   surface = vkh::GetPlatformSurface(instance, static_cast<GLFWwindow*>(applicationDevice.GraphicsWindow));
 
   VkSurfaceCapabilitiesKHR surfaceInfo;
@@ -33,8 +33,7 @@ int VK::CreateGraphicsState(Device& applicationDevice){
   swapchainExtent = surfaceInfo.currentExtent;
 
   //swap chain
-  VkSwapchainCreateInfoKHR cSwapchain;
-  cSwapchain.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+  VkSwapchainCreateInfoKHR cSwapchain; cSwapchain.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
   cSwapchain.flags = 0;
   cSwapchain.minImageCount = 2;
   cSwapchain.imageArrayLayers = 1;
@@ -436,65 +435,3 @@ void VK::Destroy(){
   vkDestroyInstance(instance, nullptr);
 
 }
-
-
-template<typename _Type, size_t _Size>
-class small_vec{
-  _Type hot_stack[_Size];
-  bool isFallback; //here in my implemetnation i store a single bit on the hot_stack  but for this example we will do this
-  _Type* first = hot_stack;
-  _Type* cur;
-  _Type* end;
-
-  void grow(){
-    _Type* new_mem = alloc((end - first) * 1.5);
-    move_or_copy_to_new(new_mem);
-
-    if(isFallback){
-      //if we are on heap we free else we dont
-      free(first);
-      first = new_mem;
-    }
-      first = new_mem;
-    //etc..
-
-  }
-
-public:
-_Type& push(_Type& val){
-  if(cur == end){
-    grow();
-  }
-  
-  *cur =  val;
-    
-  }
-
-  ~small_vec(){
-    if(isFallback){
-      free(first);
-    }
-  }
-  
-
-};
-
-class normal_vec{
-private:
-  _Type* first;
-  _Type* cur;
-  _Type* end;
-public:
-
-_Type& push(_Type& val){
-  if(cur == end){
-    grow();
-  }
-  
-  *cur =  val;
-    
-  }
-};
-
-
-
