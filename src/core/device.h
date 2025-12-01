@@ -4,12 +4,13 @@
 #ifndef UNICODE
 #define UNICODE
 #endif
-#include "windows.h"
-#include "keyboard.h"
 #endif
+
+#include <unordered_map>
 
 #if __APPLE__
 #include "GLFW/glfw3.h"
+extern std::unordered_map<int, std::atomic<int>*> PhysicalKeyMap;
 #endif
 
 
@@ -19,6 +20,8 @@ private:
 
 
 public:
+  int windowH;
+  int windowW;
    //windowing
   PlatformWindowHandle GraphicsWindow;
    void CloseGraphicWindow();
