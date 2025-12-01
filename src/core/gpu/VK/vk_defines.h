@@ -30,6 +30,7 @@ struct HostWriteBuffer{
 struct PipelineShaders{
   VkShaderModule vertex;
   VkShaderModule pixel;
+  VkPipelineLayout layout;
 };
 
 constexpr VkFormat _supportedFormats = {
