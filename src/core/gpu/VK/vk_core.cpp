@@ -4,14 +4,16 @@
 #include "vk_defines.h"
 #include "vk_internal.h"
 #include "vk_wrappers.h"
-
 #include "MemoryVK/MemoryVK.h"
 
 #include "core/configuration//build_generation.h"
 #include "core/device.h"
+#include "core/fsystem/file.h"
+#include "vulkan/vulkan_core.h"
 
 #include <vulkan/vulkan.h>
-
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <stdio.h>
 
 #include <bcl/containers/vector.h>
@@ -59,18 +61,33 @@ int VK::CreateGraphicsState(Device& applicationDevice){
   vkGetSwapchainImagesKHR(device, swapchain, &imageCount, swapchainImages);
 
   for(int i = 0; i < imageCount; ++i){
-    swapchainViews[i] = vkh::CreateImageView(device, swapchainImages[i], VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_B8G8R8A8_UNORM);   
+    swapchainViews[i] = vkh::CreateImageView(device, swapchainImages[i], VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);   
   }
-  
+
+  vkcall(ivk::wrappers::CreateImage2D(device, VK_FORMAT_D32_SFLOAT, 
+                                      VkExtent3D{swapchainExtent.width, swapchainExtent.height, 1},
+                                      1, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                                      VK_IMAGE_LAYOUT_UNDEFINED, VK_SAMPLE_COUNT_1_BIT,
+                                      VK_IMAGE_TILING_OPTIMAL, 0, &depthBuffer.image
+                                      ))
+
+  VkMemoryRequirements depthRequirements;
+  vkGetImageMemoryRequirements(device, depthBuffer.image, &depthRequirements);
+  vkcall(MemoryVK::Allocate(device, &depthBuffer.memory, depthRequirements.size, _macosDeviceLocalFlag))
+  vkcall(vkBindImageMemory(device, depthBuffer.image, depthBuffer.memory, 0))
+  depthBuffer.view = vkh::CreateImageView(device, depthBuffer.image, VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_D32_SFLOAT, VK_IMAGE_ASPECT_DEPTH_BIT);
+
   mainRenderpass = vkh::CreateRenderpass(device);
+
+  VkImageView frontrp[2]{swapchainViews[0], depthBuffer.view};
+  VkImageView backrp[2]{swapchainViews[1], depthBuffer.view};
 
    VkFramebufferCreateInfo cFramebuffer1{};
    cFramebuffer1.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
    cFramebuffer1.pNext = nullptr;
    cFramebuffer1.flags = 0;
-   cFramebuffer1.pAttachments = &swapchainViews[0];
-   cFramebuffer1.attachmentCount = 1;
-  
+   cFramebuffer1.pAttachments = frontrp;
+   cFramebuffer1.attachmentCount = 2;
    cFramebuffer1.width = swapchainExtent.width;
    cFramebuffer1.height = swapchainExtent.height;
    cFramebuffer1.layers = 1;
@@ -80,9 +97,8 @@ int VK::CreateGraphicsState(Device& applicationDevice){
    cFramebuffer2.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
    cFramebuffer2.pNext = nullptr;
    cFramebuffer2.flags = 0;
-   cFramebuffer2.pAttachments = &swapchainViews[1];
-   cFramebuffer2.attachmentCount = 1;
-  
+   cFramebuffer2.pAttachments = backrp;
+   cFramebuffer2.attachmentCount = 2;
    cFramebuffer2.width = swapchainExtent.width;
    cFramebuffer2.height = swapchainExtent.height;
    cFramebuffer2.layers = 1;
@@ -90,6 +106,7 @@ int VK::CreateGraphicsState(Device& applicationDevice){
 
    vkcall(vkCreateFramebuffer(device, &cFramebuffer1, nullptr, &framebuffers[0]))
    vkcall(vkCreateFramebuffer(device, &cFramebuffer2, nullptr, &framebuffers[1]))
+
 
   vkh::PipelineState pipeline{};
 
@@ -112,7 +129,41 @@ int VK::CreateGraphicsState(Device& applicationDevice){
   vkcall(ivk::wrappers::CreateShader(device, static_cast<uint32_t*>(vert.first), vert.second, nullptr, &vertexShader))
   vkcall(ivk::wrappers::CreateShader(device, static_cast<uint32_t*>(pixel.first), pixel.second, nullptr, &pixelShader))
 
-  vkcall(ivk::CreateGraphicPipeline(device, ivk::PipelineShaders{vertexShader, pixelShader}, mainRenderpass, &mainPipeline))
+  // descriptor sets
+  // TODO: fill
+  VkSamplerCreateInfo cSampler{};
+  // vkcall(vkCreateSampler(device, &cSampler, nullptr, &sampler))
+
+  VkDescriptorSetLayoutBinding dslb{};
+  dslb.binding = 0;
+  dslb.descriptorCount = 1;
+  dslb.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  dslb.pImmutableSamplers = nullptr;
+  dslb.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+  VkDescriptorSetLayoutCreateInfo layoutInfo{};
+  layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  layoutInfo.bindingCount = 1;
+  layoutInfo.pBindings = &dslb;
+  vkcall(vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &geoPassDescriptorLayout))
+
+  VkPushConstantRange pcr{};
+  pcr.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+  pcr.offset = 0;
+  pcr.size  = sizeof(glm::mat4) * 3;
+
+  VkPipelineLayoutCreateInfo cPipelineLayout{};
+  cPipelineLayout.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+  cPipelineLayout.pNext = nullptr;
+  cPipelineLayout.flags = 0;
+  cPipelineLayout.setLayoutCount = 1;
+  cPipelineLayout.pSetLayouts = &geoPassDescriptorLayout;
+  cPipelineLayout.pushConstantRangeCount = 1;
+  cPipelineLayout.pPushConstantRanges = &pcr;
+  vkCreatePipelineLayout(device, &cPipelineLayout, nullptr, &geoPassPipelineLayout);
+
+  vkcall(ivk::CreateGraphicPipeline(device, ivk::PipelineShaders{vertexShader, pixelShader, geoPassPipelineLayout},
+                                    mainRenderpass, &mainPipeline))
 
   VkCommandPoolCreateInfo cCommandPool{};
   cCommandPool.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -170,6 +221,17 @@ int VK::CreateGraphicsState(Device& applicationDevice){
     vkcall(ivk::wrappers::CreateFence(device, VK_FENCE_CREATE_SIGNALED_BIT, nullptr, &s))
   }
 
+  CreateFixedSamplers(false);
+  CreateFixedDescriptors();
+
+  glm::mat4 x = glm::mat4(1);
+  memcpy(DefaultGPassStub.transform, &x, sizeof(glm::mat4));
+
+  x = glm::lookAt(glm::vec3(0.0f, -2.0f, -4.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+  memcpy(DefaultGPassStub.view, &x, sizeof(glm::mat4));
+
+  x = glm::perspectiveFov(glm::radians(60.0f), static_cast<float>(swapchainExtent.width), static_cast<float>(swapchainExtent.height), 0.4f, 100.0f);
+  memcpy(DefaultGPassStub.projection, &x, sizeof(glm::mat4));
 
   return 0;
 }
@@ -206,7 +268,6 @@ int VK::Init(){
   cInstance.ppEnabledExtensionNames = extentions.data();
   cInstance.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
   vkcall(vkCreateInstance(&cInstance, nullptr, &instance))
-
 
   //physical device and queue families
   gpu = vkh::GetGpu(instance);
@@ -249,6 +310,7 @@ int VK::Init(){
   //fixme end
   return 0;
 }
+ 
 
 void VK::Draw(){
   vkWaitForFences(device, 1, &fences[Fence::FrameInFlight], VK_TRUE, UINT64_MAX);
@@ -259,17 +321,20 @@ void VK::Draw(){
 
   vkcall(ivk::wrappers::BeginCommandBuffer(mainCommandBuffer))
 
-  VkClearValue col{
-    {0.0f, 0.07f, 0.2f, 1.0f}
+  VkClearValue col[2]{
+    // {0.1f, 0.1f, 0.1f, 1.0f},
+    {0.4f, 0.5f, 0.6f, 1.0f},
+    {1.0, 1.0, 1.0, 1.0}
   };
 
+// gbufferpass
   VkRenderPassBeginInfo rpass{};
   rpass.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
   rpass.pNext = nullptr;
   rpass.renderPass = mainRenderpass;
   rpass.renderArea = VkRect2D{{0,0}, {swapchainExtent.width,swapchainExtent.height}};
-  rpass.clearValueCount = 1;
-  rpass.pClearValues = &col;
+  rpass.clearValueCount = 2;
+  rpass.pClearValues = col;
   rpass.framebuffer = framebuffers[curBackBuffer];
   vkCmdBeginRenderPass(mainCommandBuffer, &rpass, VK_SUBPASS_CONTENTS_INLINE);
 
@@ -288,15 +353,28 @@ void VK::Draw(){
   scissor.offset = {0, 0};
   scissor.extent = VkExtent2D{swapchainExtent.width, swapchainExtent.height} ;
   vkCmdSetScissor(mainCommandBuffer, 0, 1, &scissor);
-  
 
-   VkDeviceSize offsets[] = {0};
-  vkCmdBindVertexBuffers(mainCommandBuffer, 0, 1, &_TmpCube.vbo, offsets);
-  vkCmdBindIndexBuffer(mainCommandBuffer, _TmpCube.ibo, 0, VK_INDEX_TYPE_UINT16);
-  vkCmdDrawIndexed(mainCommandBuffer, _TmpCube.data.nIndices, 1 ,0 ,0, 0);
+  //draw list execute
+  for(const GBufEntry& e: drawList){
+
+
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(mainCommandBuffer, 0, 1, &e.vertex->handle, offsets);
+    vkCmdBindIndexBuffer(mainCommandBuffer, e.index->handle, 0, VK_INDEX_TYPE_UINT16);
+
+    vkCmdBindDescriptorSets(mainCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
+    geoPassPipelineLayout, 0, 1, &e.texture->descriptor, 0, nullptr);
+
+
+    vkCmdPushConstants(mainCommandBuffer, geoPassPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GeometryPassPush), e.push);
+    vkCmdDrawIndexed(mainCommandBuffer, e.numIndices, 1 ,0 ,0, 0);
+  }
+  
 
   vkCmdEndRenderPass(mainCommandBuffer);
   vkEndCommandBuffer(mainCommandBuffer);
+
+  drawList.clear();
 
   VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
   VkSubmitInfo submit{};
@@ -370,26 +448,24 @@ void VK::TestTriangle(){
   submitInfo.commandBufferCount = 1;
   submitInfo.pCommandBuffers = &mainCommandBuffer;
 
-  vkcall(vkQueueSubmit(graphicQueue, 1, &submitInfo, mainFence))
+  vkcall(vkQueueSubmit(graphicQueue, 1, &submitInfo, VK_NULL_HANDLE))
   vkcall(vkQueueWaitIdle(graphicQueue))
-  vkWaitForFences(device, 1, &mainFence, VK_TRUE, UINT64_MAX);
 
   //texture 
-  VkImage texture;
-  VkImageView textureView;
-  VkDeviceMemory texHandle;
+  std::string texpath(_SSF_GENERATED_TEXTURE_FOLDER);;
+  ssf::core::ImageData image  = ssf::core::LoadImage(texpath.append("404.png").c_str());
+  ssf::core::UnloadImage(image);
 
-  //TODO: absolutly not valid
-  VkExtent3D exent{69, 69, 1};
+  VkExtent3D exent{static_cast<uint32_t>(image.width), static_cast<uint32_t>(image.height), 1};
 
   vkcall(ivk::wrappers::CreateImage2D(device, VK_FORMAT_R8G8B8A8_SRGB, exent, 1,
   VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_SAMPLE_COUNT_1_BIT,
-  VK_IMAGE_TILING_OPTIMAL, 1, &texture))
+  VK_IMAGE_TILING_OPTIMAL, 1, &_TmpCube.texture))
 
   VkMemoryRequirements textureReq{};
-  vkGetImageMemoryRequirements(device, texture, &textureReq);
-  vkcall(MemoryVK::Allocate(device, &texHandle, textureReq.size, _macosDeviceLocalFlag))
-  vkcall(vkBindImageMemory(device, texture, texHandle, 0))
+  vkGetImageMemoryRequirements(device, _TmpCube.texture, &textureReq);
+  vkcall(MemoryVK::Allocate(device, &_TmpCube.texHandle, textureReq.size, _macosDeviceLocalFlag))
+  vkcall(vkBindImageMemory(device, _TmpCube.texture, _TmpCube.texHandle, 0))
 
   VkComponentMapping mappings{ VK_COMPONENT_SWIZZLE_R,
     VK_COMPONENT_SWIZZLE_G,
@@ -398,24 +474,36 @@ void VK::TestTriangle(){
   };
 
   VkImageSubresourceRange range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-  ivk::wrappers::CreateImageView2D(device, texture, VK_FORMAT_R8G8B8A8_SRGB, mappings, range, &textureView);
+  ivk::wrappers::CreateImageView2D(device, _TmpCube.texture, VK_FORMAT_R8G8B8A8_SRGB, mappings, range, &_TmpCube.textureView);
 
 
   ivk::TransitionImageLayoutData transtionData{
-    texture,
+    _TmpCube.texture,
     VK_ACCESS_NONE, VK_ACCESS_TRANSFER_WRITE_BIT,
     VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
     range
   };
   
   vkResetCommandBuffer(mainCommandBuffer, 0);
+
   ivk::wrappers::BeginCommandBuffer(mainCommandBuffer);
   ivk::TransitionImageLayoutsOp(mainCommandBuffer, &transtionData, 1, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
-  
-  // vkMapMemory()
-  // memcpy()
-  // vkUnmapMemory()
-  // vkCmdCopyBufferToImage();
+
+  vkcall(vkMapMemory(device, stagingBuffers[0].second, 0, image.bytes, 0, &data))
+  memcpy(data, image.data, image.bytes);
+  vkUnmapMemory(device, stagingBuffers[0].second);
+
+  VkBufferImageCopy c{};
+  c.bufferImageHeight = 0;
+  c.bufferOffset = 0;
+  c.bufferRowLength = 0;
+  c.imageOffset = {0,0,0};
+  c.imageExtent = exent;
+  c.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  c.imageSubresource.baseArrayLayer = 0;
+  c.imageSubresource.layerCount = 1;
+  c.imageSubresource.mipLevel = 0;
+  vkCmdCopyBufferToImage(mainCommandBuffer, stagingBuffers[0].first, _TmpCube.texture, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &c);
   
   transtionData.prevAccess = VK_ACCESS_TRANSFER_WRITE_BIT;
   transtionData.nextAccess = VK_ACCESS_SHADER_READ_BIT;
@@ -424,8 +512,483 @@ void VK::TestTriangle(){
   ivk::TransitionImageLayoutsOp(mainCommandBuffer, &transtionData, 1, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
   ivk::wrappers::EndCommandBuffer(mainCommandBuffer);
 
-  //constantbuffer
+  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  submitInfo.pNext = nullptr;
+  submitInfo.commandBufferCount = 1;
+  submitInfo.pCommandBuffers = &mainCommandBuffer;
+
+  vkcall(vkQueueSubmit(graphicQueue, 1, &submitInfo, VK_NULL_HANDLE))
+  vkcall(vkQueueWaitIdle(graphicQueue))
+
+  VkDescriptorImageInfo imageInfo{};
+  imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  imageInfo.imageView = _TmpCube.textureView;
+  imageInfo.sampler = fiSamplers[Sampler::ClampTexture];
+
+  for (size_t i = 0; i < 2; i++) {
+
+    VkWriteDescriptorSet s{};
+    s.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    s.pNext = 0;
+    s.dstSet = textureDescSet[i];
+    s.dstBinding = 0;
+    s.dstArrayElement = 0;
+    s.descriptorCount = 1;
+    s.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    s.pImageInfo = &imageInfo;
+    s.pBufferInfo = nullptr;
+    s.pTexelBufferView = nullptr;
+    vkUpdateDescriptorSets(device, 1, &s, 0, nullptr);
 }
+
+  //constantbuffer
+  glm::mat4 x = glm::mat4(1);
+  memcpy(DefaultGPassStub.transform, &x, sizeof(glm::mat4));
+
+  x = glm::lookAt(glm::vec3(0.0f, -2.0f, -4.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+  memcpy(DefaultGPassStub.view, &x, sizeof(glm::mat4));
+  x = glm::perspectiveFov(glm::radians(60.0f), 
+                                          static_cast<float>(swapchainExtent.width),
+                                          static_cast<float>(swapchainExtent.height), 
+                                          0.4f, 100.0f);
+  memcpy(DefaultGPassStub.projection, &x, sizeof(glm::mat4));
+}
+
+  void VK::CreateFixedSamplers(bool rebuild){
+    if(rebuild){ ivk::wrappers::DestroySamplers(device, fiSamplers.data(), fiSamplers.size(), nullptr);}
+
+    vkcall(ivk::wrappers::CreateSampler(device, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+                                        true, 16, 0, 0, nullptr, &fiSamplers[Sampler::ClampTexture]))
+  }
+
+  //TODO:Figure out a better pre allocation stategy.
+  void VK::CreateFixedDescriptors(){
+    VkDescriptorPoolSize combinedSamplePool{};
+    combinedSamplePool.descriptorCount = 20;
+    combinedSamplePool.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+
+    VkDescriptorPoolSize uniformBufferPool{};
+    uniformBufferPool.descriptorCount = 10;
+    uniformBufferPool.type =  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+
+    VkDescriptorPoolSize dpsArr[2]{
+      combinedSamplePool,
+      uniformBufferPool,
+    };
+
+    VkDescriptorPoolCreateInfo cDescriptorPool{};
+    cDescriptorPool.flags = 0;
+    cDescriptorPool.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    cDescriptorPool.pNext = nullptr;
+    cDescriptorPool.poolSizeCount = 2;
+    cDescriptorPool.pPoolSizes = dpsArr;
+    cDescriptorPool.maxSets = 10;
+    vkcall(vkCreateDescriptorPool(device, &cDescriptorPool, nullptr, &geoPassDescriptorPool))
+
+  }
+
+  void VK::GpuUploadBufData(VkCommandBuffer cmdBuf, VkDeviceMemory stage, VkBuffer srcBuf, VkBuffer dstBuf, const void* const pData, size_t bytes){
+    void* mem;
+    vkcall(vkMapMemory(device, stage, 0, VK_WHOLE_SIZE, 0, &mem))
+    memcpy(mem, pData, bytes);
+    vkUnmapMemory(device, stage);
+
+
+    VkBufferCopy region{};
+    region.size = bytes;
+    vkCmdCopyBuffer(cmdBuf, srcBuf, dstBuf, 1, &region);
+  }
+
+  
+  void VK::GpuUploadImageData(VkCommandBuffer cmdBuf,VkExtent3D extent, VkDeviceMemory stage, VkBuffer srcBuf, VkImage dstBuf, 
+  const void* const pData){
+    void* mem;
+    vkcall(vkMapMemory(device, stage, 0, VK_WHOLE_SIZE, 0, &mem))
+    memcpy(mem, pData, (extent.width * extent.height * 4));
+    vkUnmapMemory(device, stage);
+
+    VkBufferImageCopy c{};
+    c.bufferImageHeight = 0;
+    c.bufferOffset = 0;
+    c.bufferRowLength = 0;
+    c.imageOffset = {0,0,0};
+    c.imageExtent = extent;
+    c.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    c.imageSubresource.baseArrayLayer = 0;
+    c.imageSubresource.layerCount = 1;
+    c.imageSubresource.mipLevel = 0;
+
+    vkCmdCopyBufferToImage(mainCommandBuffer, stagingBuffers[0].first, dstBuf, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &c);
+  }
+
+  void VK::SetGpuImageBarriers(VkCommandBuffer cmdBuf, const VkImageMemoryBarrier* const pBarrier, uint32_t count, 
+                               VkPipelineStageFlags src, VkPipelineStageFlags dst){
+    vkCmdPipelineBarrier(cmdBuf, src, dst , 0, 
+    0, nullptr, //VkMemoryBarrier
+    0, nullptr, //VkBufferMemoryBarrier
+    count, pBarrier);// VkImageMemoryBarrier
+  }
+
+
+
+  VkPipeline VK::CreateRenderPipeline(const RenderPipelineFlags flags){
+    VkPipeline ret = VK_NULL_HANDLE;
+
+  //shader stage
+  VkPipelineShaderStageCreateInfo cShaderStage[2]{};
+   
+  // cShaderStage[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+  // cShaderStage[0].pNext = nullptr;
+  // cShaderStage[0].flags = 0;
+  // cShaderStage[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+  // cShaderStage[0].module = shaders.vertex;
+  // cShaderStage[0].pName = "main";
+  // cShaderStage[0].pSpecializationInfo = nullptr;
+  //
+  // cShaderStage[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+  // cShaderStage[1].pNext = nullptr;
+  // cShaderStage[1].flags = 0;
+  // cShaderStage[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+  // cShaderStage[1].module = shaders.pixel;
+  // cShaderStage[1].pName = "main";
+  // cShaderStage[1].pSpecializationInfo = nullptr;
+
+  //vertex layout
+  // VkPipelineVertexInputStateCreateInfo cVertexInputState{};
+  // cVertexInputState.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+  // cVertexInputState.pNext = nullptr;
+  // cVertexInputState.flags = 0;
+  //
+  // VkVertexInputBindingDescription vbd;
+  // vbd.binding = 0;
+  // vbd.stride = sizeof(float) * 8;
+  // vbd.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+  //
+  // cVertexInputState.vertexBindingDescriptionCount = 1;  
+  // cVertexInputState.pVertexBindingDescriptions = &vbd;
+
+  // VkVertexInputAttributeDescription vad[3];
+  // vad[0].location = 0;
+  // vad[0].binding = 0;
+  // vad[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+  // vad[0].offset = 0;
+  //
+  // vad[1].location = 1;
+  // vad[1].binding = 0;
+  // vad[1].format = VK_FORMAT_R32G32_SFLOAT;
+  // vad[1].offset = sizeof(float) * 3;
+  //
+  // vad[2].location = 2;
+  // vad[2].binding = 0;
+  // vad[2].format = VK_FORMAT_R32G32B32_SFLOAT;
+  // vad[2].offset = sizeof(float) * 5;
+  //
+  //
+  // cVertexInputState.vertexAttributeDescriptionCount = 3;
+  // cVertexInputState.pVertexAttributeDescriptions = vad;
+
+  //input stage
+  // VkPipelineInputAssemblyStateCreateInfo cInputAssemblyState{};
+  // cInputAssemblyState.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+  // cInputAssemblyState.pNext = nullptr;
+  // cInputAssemblyState.flags = 0;
+  // cInputAssemblyState.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+  // cInputAssemblyState.primitiveRestartEnable = false;
+  //
+  // //dynamic state
+  // VkPipelineDynamicStateCreateInfo cDynamicState{};
+  // cDynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+  // cDynamicState.pNext = nullptr;
+  // cDynamicState.flags = 0;
+  //
+  // VkDynamicState dynamicStates[2]{VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+  // cDynamicState.dynamicStateCount = 2;
+  // cDynamicState.pDynamicStates = dynamicStates;
+  //
+  // // Viewport
+  // VkPipelineViewportStateCreateInfo cViewportState{};
+  // cViewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+  // cViewportState.pNext = nullptr;
+  // cViewportState.flags = 0;
+  //
+  // VkViewport viewport{};
+  // viewport.x = 0;
+  // viewport.y = 0;
+  // viewport.width = 3024;
+  // viewport.height = 1844;
+  // viewport.minDepth = 0.0f;
+  // viewport.maxDepth = 1.0f;
+  // cViewportState.viewportCount = 1;
+  // cViewportState.pViewports = &viewport;
+  //
+  // VkRect2D scissor{};
+  // scissor.offset.x = 0;
+  // scissor.offset.y = 0;
+  // scissor.extent.width = 3024;
+  // scissor.extent.height = 1844;
+  // cViewportState.scissorCount = 1;
+  // cViewportState.pScissors = &scissor;
+  // 
+  // VkPipelineRasterizationStateCreateInfo cRasterizationState{};
+  // cRasterizationState.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+  // cRasterizationState.pNext = nullptr;
+  // cRasterizationState.flags = 0;
+  // cRasterizationState.depthClampEnable = VK_FALSE;
+  // cRasterizationState.rasterizerDiscardEnable = VK_FALSE;
+  // cRasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;
+  // cRasterizationState.frontFace = VK_FRONT_FACE_CLOCKWISE;
+  // cRasterizationState.depthBiasEnable = VK_FALSE;
+  // cRasterizationState.polygonMode = flags & RenderPipelineWireframe ? VK_POLYGON_MODE_LINE : VK_POLYGON_MODE_FILL;
+  // cRasterizationState.depthBiasConstantFactor = 0.0f;
+  // cRasterizationState.depthBiasClamp = 0.0f;
+  // cRasterizationState.depthBiasSlopeFactor = 0.0f;
+  // cRasterizationState.lineWidth = 1.0f;
+  // 
+  // VkPipelineMultisampleStateCreateInfo cMultisampleState{};
+  // cMultisampleState.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+  // cMultisampleState.pNext = nullptr;
+  // cMultisampleState.flags = 0;
+  // cMultisampleState.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+  // cMultisampleState.sampleShadingEnable = VK_FALSE;
+  //
+  // VkPipelineDepthStencilStateCreateInfo cDepthStencilState{};
+  // cDepthStencilState.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+  // cDepthStencilState.pNext = nullptr;
+  // cDepthStencilState.flags = 0;
+  // cDepthStencilState.depthTestEnable = VK_TRUE;
+  // cDepthStencilState.depthWriteEnable = VK_TRUE;
+  // cDepthStencilState.depthCompareOp = VK_COMPARE_OP_LESS;
+  // cDepthStencilState.depthBoundsTestEnable = VK_FALSE;
+  // cDepthStencilState.stencilTestEnable = VK_FALSE;
+  // cDepthStencilState.minDepthBounds = 0.0f;
+  // cDepthStencilState.maxDepthBounds = 1.0f;
+  // cDepthStencilState.front = {};
+  // cDepthStencilState.back = {};
+  //
+  //
+  // VkPipelineColorBlendAttachmentState colorBlendAttachment{};
+  // colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+  // colorBlendAttachment.blendEnable = VK_FALSE;
+  // colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+  // colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+  // colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+  // colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+  // colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+  // colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+  //
+  // VkPipelineColorBlendStateCreateInfo colorBlending{};
+  // colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+  // colorBlending.logicOpEnable = VK_FALSE;
+  // colorBlending.logicOp = VK_LOGIC_OP_COPY; // Optional
+  // colorBlending.attachmentCount = 1;
+  // colorBlending.pAttachments = &colorBlendAttachment;
+  // colorBlending.blendConstants[0] = 0.0f; // Optional
+  // colorBlending.blendConstants[1] = 0.0f; // Optional
+  // colorBlending.blendConstants[2] = 0.0f; // Optional
+  // colorBlending.blendConstants[3] = 0.0f; // Optional
+  //
+  // VkPipelineTessellationStateCreateInfo cTessellationState{};
+  //
+  // VkGraphicsPipelineCreateInfo cGraphicsPipeline{};
+  // cGraphicsPipeline.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO; 
+  // cGraphicsPipeline.pNext = nullptr;
+  // cGraphicsPipeline.flags = 0;
+  //
+  // //filled automaticly with shader reflection
+  // // cGraphicsPipeline.pStages = &cShaderStage;
+  // cGraphicsPipeline.stageCount = 2;
+  // cGraphicsPipeline.pStages = cShaderStage;
+  // cGraphicsPipeline.pVertexInputState = &cVertexInputState;
+  // cGraphicsPipeline.pTessellationState = nullptr;
+  // cGraphicsPipeline.pInputAssemblyState = &cInputAssemblyState;
+  // cGraphicsPipeline.layout = shaders.layout;
+  //
+  // //dynamic state some static others enabled with param flag
+  // cGraphicsPipeline.pViewportState = &cViewportState;
+  // cGraphicsPipeline.pDynamicState = &cDynamicState;
+  //
+  // //idk
+  // cGraphicsPipeline.pMultisampleState = &cMultisampleState;
+  //
+  // //static always enabled customized through flags
+  // cGraphicsPipeline.pRasterizationState = &cRasterizationState;
+  // cGraphicsPipeline.pDepthStencilState = &cDepthStencilState;
+  // cGraphicsPipeline.pColorBlendState = &colorBlending;
+  //
+  // //user defined with parameters to create function
+  // cGraphicsPipeline.renderPass = renderpass;
+  // cGraphicsPipeline.subpass = 0;
+  //
+  // return vkCreateGraphicsPipelines(device, nullptr, 1, &cGraphicsPipeline, nullptr, pipeline);
+  
+    return ret;
+  };
+
+
+
+  // void VK::GpuUploadImageData(VkDevice device, VkDeviceMemory staged, const void* const pData, size_t bytes){ }
+
+  VK::GeoHandle VK::CreateGeometry(const GeometryData& geo){
+    VkMemoryRequirements memReq;
+    VkBuffer buf;
+    VkDeviceMemory handle;
+    VkImage tex;
+    VkImageView view;
+    GBufEntry entry{};
+    VkDescriptorSet texelSet;
+
+    VkSubmitInfo submit{};
+    submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit.pNext = nullptr;
+    submit.commandBufferCount = 1;
+    submit.pCommandBuffers = &mainCommandBuffer;
+
+    vkResetCommandBuffer(mainCommandBuffer, 0);
+    vkcall(ivk::wrappers::BeginCommandBuffer(mainCommandBuffer))
+
+    //create vertext buffer
+    vkcall(vkh::CreateBuffer(device, &buf, geo.vertexBytes, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT))
+    vkGetBufferMemoryRequirements(device, buf, &memReq);
+    vkcall(MemoryVK::Allocate(device, &handle, memReq.size, _macosDeviceLocalFlag))
+    vkcall(vkBindBufferMemory(device, buf, handle, 0))
+    bufferList.push_back(GpuBuffer{buf, handle});
+    entry.vertex = --bufferList.end();
+
+    GpuUploadBufData(mainCommandBuffer, stagingBuffers[0].second, stagingBuffers[0].first, buf, geo.pVertex, geo.vertexBytes);
+    vkcall(ivk::wrappers::EndCommandBuffer(mainCommandBuffer))
+    vkQueueSubmit(graphicQueue, 1, &submit, VK_NULL_HANDLE);
+    vkQueueWaitIdle(graphicQueue);
+
+    //create index buffer
+    vkResetCommandBuffer(mainCommandBuffer, 0);
+    vkcall(ivk::wrappers::BeginCommandBuffer(mainCommandBuffer))
+
+    vkcall(vkh::CreateBuffer(device, &buf, geo.indicesBytes, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT))
+    vkGetBufferMemoryRequirements(device, buf, &memReq);
+    vkcall(MemoryVK::Allocate(device, &handle, memReq.size, _macosDeviceLocalFlag))
+    vkcall(vkBindBufferMemory(device, buf, handle, 0))
+    GpuUploadBufData(mainCommandBuffer, stagingBuffers[0].second, stagingBuffers[0].first, buf, geo.pIndices, geo.indicesBytes);
+    bufferList.push_back(GpuBuffer{buf, handle});
+    entry.index = --bufferList.end();
+
+    vkcall(ivk::wrappers::EndCommandBuffer(mainCommandBuffer))
+    vkQueueSubmit(graphicQueue, 1, &submit, VK_NULL_HANDLE);
+    vkQueueWaitIdle(graphicQueue);
+    
+    //create texture
+    vkResetCommandBuffer(mainCommandBuffer, 0);
+    vkcall(ivk::wrappers::BeginCommandBuffer(mainCommandBuffer))
+
+    vkcall(ivk::wrappers::CreateImage2D(device, VK_FORMAT_R8G8B8A8_SRGB, VkExtent3D{geo.textureWidth, geo.textureHeight, 1}, 1,
+    VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_SAMPLE_COUNT_1_BIT,
+    VK_IMAGE_TILING_OPTIMAL, 1, &tex))
+
+    vkGetImageMemoryRequirements(device, tex, &memReq);
+    vkcall(MemoryVK::Allocate(device, &handle, memReq.size, _macosDeviceLocalFlag))
+    vkcall(vkBindImageMemory(device, tex, handle, 0))
+
+    VkImageSubresourceRange range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+
+    vkcall(ivk::wrappers::CreateImageView2D(device, tex, VK_FORMAT_R8G8B8A8_SRGB, defaultTextureCMapping, range, &view))
+
+    texelList.push_back(GpuTexel{tex, handle, view});
+    entry.texture = --texelList.end();
+
+    auto transfer = ivk::wrappers::CreateImageMemoryBarrier(device, tex, 0, 0, VK_ACCESS_NONE, VK_ACCESS_TRANSFER_WRITE_BIT,
+                     VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, range);
+
+    auto shaderReady = ivk::wrappers::CreateImageMemoryBarrier(device, tex, 0, 0, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+                       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, range);
+
+    SetGpuImageBarriers(mainCommandBuffer, &transfer, 1, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+    GpuUploadImageData(mainCommandBuffer, VkExtent3D{geo.textureWidth, geo.textureHeight, 1}, stagingBuffers[0].second, 
+    stagingBuffers[0].first, tex, geo.texture);
+
+    SetGpuImageBarriers(mainCommandBuffer, &shaderReady, 1, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
+    vkcall(ivk::wrappers::EndCommandBuffer(mainCommandBuffer))
+    vkQueueSubmit(graphicQueue, 1, &submit, VK_NULL_HANDLE);
+    vkQueueWaitIdle(graphicQueue);
+    vkResetCommandBuffer(mainCommandBuffer, 0);
+
+    VkDescriptorSetAllocateInfo dsai{};
+    dsai.pSetLayouts = &geoPassDescriptorLayout;
+    dsai.descriptorPool = geoPassDescriptorPool;
+    dsai.descriptorSetCount = 1;
+    dsai.pNext = nullptr;
+    dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    vkAllocateDescriptorSets(device,&dsai , &texelSet);
+
+    VkDescriptorImageInfo imageInfo{};
+    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageInfo.imageView = view;
+    imageInfo.sampler = fiSamplers[Sampler::ClampTexture];
+
+    VkWriteDescriptorSet s{};
+    s.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    s.pNext = 0;
+    s.dstSet = texelSet;
+    s.dstBinding = 0;
+    s.dstArrayElement = 0;
+    s.descriptorCount = 1;
+    s.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    s.pImageInfo = &imageInfo;
+    s.pBufferInfo = nullptr;
+    s.pTexelBufferView = nullptr;
+    vkUpdateDescriptorSets(device, 1, &s, 0, nullptr);
+
+    entry.texture->descriptor = texelSet;
+    entry.push = &DefaultGPassStub;
+
+
+    entry.numIndices = geo.numIndices;
+    geometryList.push_back(entry);
+   return --geometryList.end();
+  }
+
+  void VK::DestroyGeometry(GeoHandle& geometry){
+
+  }
+
+  void VK::MapGeometryPassPushBuf(GeoHandle& handle, void* pData){
+    handle->push = pData;
+  }
+
+  void VK::UnmapGeometryPassPushBuf(GeoHandle& handle){
+    handle->push = &DefaultGPassStub;
+  }
+
+  void VK::AddToDrawList(GeoHandle& geometry){
+    drawList.push_back(*geometry);
+  }
+
+  void VK::RemoveToDrawList(GeoHandle& geometry){}
+
+
+  void VK::SetSkyBox(const void* texture, uint32_t width, uint32_t height){
+    VkImage image;
+    VkImageView v;
+    VkMemoryRequirements requirements;
+    VkDeviceMemory memory;
+
+    vkcall(ivk::wrappers::CreateImage2D(device, VK_FORMAT_R8G8B8A8_SRGB, VkExtent3D{width, height, 1}, 1, 
+    VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_SAMPLE_COUNT_1_BIT,
+    VK_IMAGE_TILING_OPTIMAL, 6, &image))
+    
+    VkImageSubresourceRange sr;
+    sr.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    sr.baseArrayLayer = 0;
+    sr.baseMipLevel = 0;
+    sr.layerCount = 6;
+    sr.levelCount = 1;
+
+    vkcall(ivk::wrappers::CreateImageView2D(device, image, VK_FORMAT_R8G8B8A8_SRGB, defaultTextureCMapping, sr, &v))
+    vkGetImageMemoryRequirements(device, image, &requirements);
+    vkcall(MemoryVK::Allocate(device, &memory, requirements.size, _macosDeviceLocalFlag))
+  };
+
+
 
 void VK::Destroy(){
   vkDestroyBuffer(device, _TmpCube.ibo, nullptr);
@@ -433,5 +996,4 @@ void VK::Destroy(){
 
   vkDestroyDevice(device, nullptr);
   vkDestroyInstance(instance, nullptr);
-
 }
