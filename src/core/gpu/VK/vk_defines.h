@@ -20,13 +20,6 @@ struct QueueFamily{
 
 namespace ivk{
 
-struct HostWriteBuffer{
-  VkBuffer buf;
-  VkDeviceSize bytes;
-  size_t bump;
-};
-
-
 struct PipelineShaders{
   VkShaderModule vertex;
   VkShaderModule pixel;
