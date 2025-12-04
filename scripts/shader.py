@@ -15,6 +15,7 @@ class ShaderType(Enum):
 # hardcode for now
 OUT_FOLDER = "/Users/brinq/.dev/projects/solar-sim/build/bin/data/"
 OUT_EXTENSION = ".shader"
+ARG = "-O0"
 
 COMPILER = os.getenv("SSF_VULKAN_BIN")
 
@@ -34,7 +35,7 @@ shader_folder = Path(Path(__file__).parent.parent.__str__().__add__("/data/shade
 def compile_shader(path: str, name: str, type_arg: str):
     out = "-o" + OUT_FOLDER + name + OUT_EXTENSION
 
-    res = subprocess.run( [COMPILER.__str__(), type_arg, path, out]).returncode
+    res = subprocess.run( [COMPILER.__str__(), ARG, type_arg, path, out]).returncode
     if res != 0:
         print("Failure compiling shader - " + name)
         return
