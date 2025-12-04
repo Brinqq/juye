@@ -11,7 +11,8 @@ const int PlatformKeyMap[] = {
   GLFW_MOUSE_BUTTON_1,
   GLFW_MOUSE_BUTTON_2,
   GLFW_KEY_LEFT_SHIFT,
-  GLFW_KEY_SPACE
+  GLFW_KEY_SPACE,
+  GLFW_KEY_ESCAPE
 };
 
 #endif
@@ -29,5 +30,6 @@ namespace ssf{
     KeyCodeRMB = 5,
     KeyCodeSHIFT = 6,
     KeyCodeSPACE = 7,
+    KeyCodeESC = 8
   };
 };
