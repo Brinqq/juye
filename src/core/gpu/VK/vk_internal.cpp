@@ -1,4 +1,5 @@
 #include "vk_internal.h"
+#include "shader/shader_core.h"
 
 #include <bcl/containers/vector.h>
 
@@ -7,63 +8,17 @@
 
 namespace ivk{
 
-VkResult CreateGraphicPipeline(VkDevice device, const PipelineShaders& shaders, VkRenderPass renderpass, VkPipeline* pipeline){
-  //TODO: Shaders reflect and set layout requirements instead of hardcoding
-  
-  //shader stage
-  VkPipelineShaderStageCreateInfo cShaderStage[2]{};
-  
-  cShaderStage[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-  cShaderStage[0].pNext = nullptr;
-  cShaderStage[0].flags = 0;
-  cShaderStage[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-  cShaderStage[0].module = shaders.vertex;
-  cShaderStage[0].pName = "main";
-  cShaderStage[0].pSpecializationInfo = nullptr;
+VkResult CreateGraphicPipeline(VkDevice device, const ShaderContainer& container, VkPipelineLayout layout, VkRenderPass renderpass, VkPipeline* pipeline){
 
-  cShaderStage[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-  cShaderStage[1].pNext = nullptr;
-  cShaderStage[1].flags = 0;
-  cShaderStage[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-  cShaderStage[1].module = shaders.pixel;
-  cShaderStage[1].pName = "main";
-  cShaderStage[1].pSpecializationInfo = nullptr;
-
-  //vertex layout
   VkPipelineVertexInputStateCreateInfo cVertexInputState{};
   cVertexInputState.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
   cVertexInputState.pNext = nullptr;
   cVertexInputState.flags = 0;
+  cVertexInputState.vertexBindingDescriptionCount = container.resources.inputs.size();  
+  cVertexInputState.pVertexBindingDescriptions = container.resources.inputs.data();
+  cVertexInputState.vertexAttributeDescriptionCount = container.resources.attributes.size();
+  cVertexInputState.pVertexAttributeDescriptions = container.resources.attributes.data();
 
-  VkVertexInputBindingDescription vbd;
-  vbd.binding = 0;
-  vbd.stride = sizeof(float) * 8;
-  vbd.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-  cVertexInputState.vertexBindingDescriptionCount = 1;  
-  cVertexInputState.pVertexBindingDescriptions = &vbd;
-
-  VkVertexInputAttributeDescription vad[3];
-  vad[0].location = 0;
-  vad[0].binding = 0;
-  vad[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-  vad[0].offset = 0;
-
-  vad[1].location = 1;
-  vad[1].binding = 0;
-  vad[1].format = VK_FORMAT_R32G32_SFLOAT;
-  vad[1].offset = sizeof(float) * 3;
-
-  vad[2].location = 2;
-  vad[2].binding = 0;
-  vad[2].format = VK_FORMAT_R32G32B32_SFLOAT;
-  vad[2].offset = sizeof(float) * 5;
-
-
-  cVertexInputState.vertexAttributeDescriptionCount = 3;
-  cVertexInputState.pVertexAttributeDescriptions = vad;
-
-  //input stage
   VkPipelineInputAssemblyStateCreateInfo cInputAssemblyState{};
   cInputAssemblyState.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
   cInputAssemblyState.pNext = nullptr;
@@ -71,7 +26,6 @@ VkResult CreateGraphicPipeline(VkDevice device, const PipelineShaders& shaders, 
   cInputAssemblyState.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
   cInputAssemblyState.primitiveRestartEnable = false;
 
-  //dynamic state
   VkPipelineDynamicStateCreateInfo cDynamicState{};
   cDynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
   cDynamicState.pNext = nullptr;
@@ -81,7 +35,6 @@ VkResult CreateGraphicPipeline(VkDevice device, const PipelineShaders& shaders, 
   cDynamicState.dynamicStateCount = 2;
   cDynamicState.pDynamicStates = dynamicStates;
 
-  // Viewport
   VkPipelineViewportStateCreateInfo cViewportState{};
   cViewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
   cViewportState.pNext = nullptr;
@@ -143,7 +96,6 @@ VkResult CreateGraphicPipeline(VkDevice device, const PipelineShaders& shaders, 
   cDepthStencilState.front = {};
   cDepthStencilState.back = {};
 
-
   VkPipelineColorBlendAttachmentState colorBlendAttachment{};
   colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
   colorBlendAttachment.blendEnable = VK_FALSE;
@@ -172,28 +124,22 @@ VkResult CreateGraphicPipeline(VkDevice device, const PipelineShaders& shaders, 
   cGraphicsPipeline.pNext = nullptr;
   cGraphicsPipeline.flags = 0;
 
-  //filled automaticly with shader reflection
-  // cGraphicsPipeline.pStages = &cShaderStage;
-  cGraphicsPipeline.stageCount = 2;
-  cGraphicsPipeline.pStages = cShaderStage;
+  cGraphicsPipeline.stageCount = container.resources.shaders.size();
+  cGraphicsPipeline.pStages = container.resources.shaders.data();
   cGraphicsPipeline.pVertexInputState = &cVertexInputState;
   cGraphicsPipeline.pTessellationState = nullptr;
   cGraphicsPipeline.pInputAssemblyState = &cInputAssemblyState;
-  cGraphicsPipeline.layout = shaders.layout;
+  cGraphicsPipeline.layout = layout;
 
-  //dynamic state some static others enabled with param flag
   cGraphicsPipeline.pViewportState = &cViewportState;
   cGraphicsPipeline.pDynamicState = &cDynamicState;
 
-  //idk
   cGraphicsPipeline.pMultisampleState = &cMultisampleState;
 
-  //static always enabled customized through flags
   cGraphicsPipeline.pRasterizationState = &cRasterizationState;
   cGraphicsPipeline.pDepthStencilState = &cDepthStencilState;
   cGraphicsPipeline.pColorBlendState = &colorBlending;
 
-  //user defined with parameters to create function
   cGraphicsPipeline.renderPass = renderpass;
   cGraphicsPipeline.subpass = 0;
 
@@ -243,6 +189,7 @@ void TransitionImageLayoutsOp(VkCommandBuffer buf, TransitionImageLayoutData* pD
 
   vkCmdPipelineBarrier(buf, prev, next, 0, 0, nullptr, 0, nullptr, arr.size(), arr.data());
 }
+
 
 //utils
 std::pair<void*, size_t> CompileShaderSource(const char* path){

@@ -3,6 +3,7 @@
 #include "vk_defines.h"
 #include <utility>
 
+struct ShaderContainer;
 
 namespace ivk{
 
@@ -24,7 +25,7 @@ struct TransitionImageLayoutData{
 };
 
 // Creation functions
-VkResult CreateGraphicPipeline(VkDevice device, const PipelineShaders& shaders, VkRenderPass renderpass, VkPipeline* pipeline);
+VkResult CreateGraphicPipeline(VkDevice device, const ShaderContainer& container, VkPipelineLayout layout, VkRenderPass renderpass, VkPipeline* pipeline);
 
 //runtime operations
 //NOTE: all functions with the suffix "Op" expect for Begin and end expect a command buffer to already be in recording.
