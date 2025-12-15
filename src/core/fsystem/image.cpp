@@ -3,7 +3,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
 
-namespace ssf::core{
+namespace juye{
 
 ImageData LoadImage(const char* filepath){
   int w, h, c;

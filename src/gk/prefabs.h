@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-namespace ssf{
+namespace juye{
   namespace prefabs{
 
 template<typename _IndexType>

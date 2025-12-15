@@ -19,7 +19,7 @@ const int PlatformKeyMap[] = {
 
 #define _ssf_translate_key(_key) PlatformKeyMap[_key]
 
-namespace ssf{
+namespace juye{
   enum KeyCode{
     KeyCodeNone = -1,
     KeyCodeW = 0,

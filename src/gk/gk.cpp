@@ -1,9 +1,9 @@
 #include "gk.h"
 #include "gk/prefabs.h"
 
-#include "core/device.h"
+#include "core/drivers/device.h"
 #include "core/fsystem/file.h"
-#include "core/gpu/VK/vk_core.h"
+#include "core/drivers/VK/vk_core.h"
 #include "core/configuration/build_generation.h"
 #include "core/debug.h"
 
@@ -39,30 +39,30 @@ Camera cam;
 bool updateCam = false;
 float speed = 0.04;
 
-ssf::ActionHandle forward;
-ssf::ActionHandle left;
-ssf::ActionHandle right;
-ssf::ActionHandle back;
-ssf::ActionHandle up;
-ssf::ActionHandle down;
-ssf::ActionHandle anExit;
+juye::ActionHandle forward;
+juye::ActionHandle left;
+juye::ActionHandle right;
+juye::ActionHandle back;
+juye::ActionHandle up;
+juye::ActionHandle down;
+juye::ActionHandle anExit;
 
 void DevInitInput(){
-  forward = ssf::CreateAction();
-  left = ssf::CreateAction();
-  right = ssf::CreateAction();
-  back = ssf::CreateAction();
-  up = ssf::CreateAction();
-  down = ssf::CreateAction();
-  anExit = ssf::CreateAction();
+  forward = juye::CreateAction();
+  left = juye::CreateAction();
+  right = juye::CreateAction();
+  back = juye::CreateAction();
+  up = juye::CreateAction();
+  down = juye::CreateAction();
+  anExit = juye::CreateAction();
 
-  ssf::MapAction(forward, ssf::KeyCodeW);
-  ssf::MapAction(right, ssf::KeyCodeD);
-  ssf::MapAction(left, ssf::KeyCodeA);
-  ssf::MapAction(back, ssf::KeyCodeS);
-  ssf::MapAction(up, ssf::KeyCodeSHIFT);
-  ssf::MapAction(down, ssf::KeyCodeSPACE);
-  ssf::MapAction(anExit, ssf::KeyCodeESC);
+  juye::MapAction(forward, juye::KeyCodeW);
+  juye::MapAction(right, juye::KeyCodeD);
+  juye::MapAction(left, juye::KeyCodeA);
+  juye::MapAction(back, juye::KeyCodeS);
+  juye::MapAction(up, juye::KeyCodeSHIFT);
+  juye::MapAction(down, juye::KeyCodeSPACE);
+  juye::MapAction(anExit, juye::KeyCodeESC);
 
 };
 
@@ -72,31 +72,31 @@ void DevUpdateView(){
 }
 
 void DevUpdateInput(){
-  if(ssf::CheckAction(forward)){
+  if(juye::CheckAction(forward)){
    cam.view = glm::translate(cam.view, glm::vec3(0.0f, 0.0f, -1.0f * speed));
   }
 
-  if(ssf::CheckAction(back)){
+  if(juye::CheckAction(back)){
    cam.view = glm::translate(cam.view, glm::vec3(0.0f, 0.0f, 1.0f * speed));
   }
 
-  if(ssf::CheckAction(left)){
+  if(juye::CheckAction(left)){
    cam.view = glm::translate(cam.view, glm::vec3(-1.0f * speed, 0.0f, 0.0f));
   }
 
-  if(ssf::CheckAction(right)){
+  if(juye::CheckAction(right)){
    cam.view = glm::translate(cam.view, glm::vec3(1.0f * speed, 0.0f, 0.0f));
   }
 
-  if(ssf::CheckAction(up)){
+  if(juye::CheckAction(up)){
    cam.view = glm::translate(cam.view, glm::vec3(0.0f , -1.0f * speed, 0.0f));
   }
 
-  if(ssf::CheckAction(down)){
+  if(juye::CheckAction(down)){
    cam.view = glm::translate(cam.view, glm::vec3(0.0f, 1.0f * speed, 0.0f));
   }
 
-  if(ssf::CheckAction(anExit)){
+  if(juye::CheckAction(anExit)){
     gApplicationClose = true;
   }
 
@@ -108,15 +108,16 @@ void DevUpdateInput(){
 
 
 ResourceHandle skybox;
-ssf::core::ImageData skyboxData[6];
+
+juye::ImageData skyboxData[6];
 
 CubeMapWriteDescription CubeMapDataGenerate(){
-  skyboxData[5]  = ssf::core::LoadImage("/Users/brinq/.dev/projects/solar-sim/ssf/data/textures/px.png");
-  skyboxData[4]  = ssf::core::LoadImage("/Users/brinq/.dev/projects/solar-sim/ssf/data/textures/nx.png");
-  skyboxData[1]  = ssf::core::LoadImage("/Users/brinq/.dev/projects/solar-sim/ssf/data/textures/py.png");
-  skyboxData[0]  = ssf::core::LoadImage("/Users/brinq/.dev/projects/solar-sim/ssf/data/textures/ny.png");
-  skyboxData[2]  = ssf::core::LoadImage("/Users/brinq/.dev/projects/solar-sim/ssf/data/textures/pz.png");
-  skyboxData[3]  = ssf::core::LoadImage("/Users/brinq/.dev/projects/solar-sim/ssf/data/textures/nz.png");
+  skyboxData[5]  = juye::LoadImage("/Users/brinq/.dev/projects/solar-sim/juye/data/textures/px.png");
+  skyboxData[4]  = juye::LoadImage("/Users/brinq/.dev/projects/solar-sim/juye/data/textures/nx.png");
+  skyboxData[1]  = juye::LoadImage("/Users/brinq/.dev/projects/solar-sim/juye/data/textures/py.png");
+  skyboxData[0]  = juye::LoadImage("/Users/brinq/.dev/projects/solar-sim/juye/data/textures/ny.png");
+  skyboxData[2]  = juye::LoadImage("/Users/brinq/.dev/projects/solar-sim/juye/data/textures/pz.png");
+  skyboxData[3]  = juye::LoadImage("/Users/brinq/.dev/projects/solar-sim/juye/data/textures/nz.png");
 
   CubeMapWriteDescription ret{};
   for(int i = 0; i < 7; ++i){
@@ -130,7 +131,7 @@ CubeMapWriteDescription CubeMapDataGenerate(){
 
 void CubeMapDataCleanup(){
   for(int i = 0; i < 6; ++i){
-    ssf::core::UnloadImage(skyboxData[i]);
+    juye::UnloadImage(skyboxData[i]);
   }
 }
 
@@ -156,13 +157,13 @@ int GK::Init(VK& vulkan){
   plane.push[0] = glm::scale(plane.push[0], glm::vec3(20.0f, 0.0f, 20.0f));
 
 
-  ssf::prefabs::TexturedCube<uint16_t> cube;
-  ssf::prefabs::TexturedPlane<uint16_t> planePrefab;
+  juye::prefabs::TexturedCube<uint16_t> cube;
+  juye::prefabs::TexturedPlane<uint16_t> planePrefab;
 
   std::string texpath(_SSF_GENERATED_TEXTURE_FOLDER);;
   std::string texpath2(_SSF_GENERATED_TEXTURE_FOLDER);;
-  ssf::core::ImageData image  = ssf::core::LoadImage(texpath.append("def.png").c_str());
-  ssf::core::ImageData pimage  = ssf::core::LoadImage(texpath2.append("orange.png").c_str());
+  juye::ImageData image  = juye::LoadImage(texpath.append("def.png").c_str());
+  juye::ImageData pimage  = juye::LoadImage(texpath2.append("orange.png").c_str());
 
   GeometryData dat;
   GeometryData geometryPlane;
@@ -191,8 +192,8 @@ int GK::Init(VK& vulkan){
   driver->MapGeometryPassPushBuf(simpleCube.handle, simpleCube.push);
   driver->MapGeometryPassPushBuf(plane.handle, plane.push);
 
-  ssf::core::UnloadImage(image);
-  ssf::core::UnloadImage(pimage);
+  juye::UnloadImage(image);
+  juye::UnloadImage(pimage);
 
   CubeMapWriteDescription x = CubeMapDataGenerate();
   skybox =  driver->CreateCubeMap(skyboxData[0].width);

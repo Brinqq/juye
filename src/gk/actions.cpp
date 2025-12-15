@@ -1,21 +1,21 @@
 #include "actions.h"
 
-#include "core/device.h"
+#include "core/drivers/device.h"
 
 #include <unordered_map>
 
 #define _SSF_MAX_KEYS_PER_ACTION 2
 
 struct Action{
-  ssf::KeyCode codes[_SSF_MAX_KEYS_PER_ACTION]{ssf::KeyCodeNone, ssf::KeyCodeNone};
+  juye::KeyCode codes[_SSF_MAX_KEYS_PER_ACTION]{juye::KeyCodeNone, juye::KeyCodeNone};
   std::atomic<int> status;
 };
 
 //TODO: change to custom flat_map impl.
-std::unordered_map<ssf::ActionHandle, Action> ActionLUT;
-ssf::ActionHandle counter = 0;
+std::unordered_map<juye::ActionHandle, Action> ActionLUT;
+juye::ActionHandle counter = 0;
 
-namespace ssf{
+namespace juye{
 
   ActionHandle CreateAction(){
     ActionHandle ret =  counter;

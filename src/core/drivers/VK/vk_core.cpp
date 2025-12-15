@@ -8,7 +8,7 @@
 #include "vkshader.h"
 
 #include "core/configuration//build_generation.h"
-#include "core/device.h"
+#include "core/drivers/device.h"
 #include "core/fsystem/file.h"
 #include "vulkan/vulkan_core.h"
 #include "core/debug.h"
@@ -578,144 +578,6 @@ void VK::Draw(){
 
 void VK::TestTriangle(){
 
-  VkMemoryRequirements req{};
-
-  //vertex buffer
-  vkcall(vkh::CreateBuffer(device,&_TmpCube.vbo, _TmpCube.data.VertexBytes, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-                            VK_BUFFER_USAGE_TRANSFER_DST_BIT))
-
-  vkGetBufferMemoryRequirements(device, _TmpCube.vbo, &req);
-  _TmpCube.vDataSize = req.size;
-  vkcall(MemoryVK::Allocate(device, &_TmpCube.vHandle, req.size, _macosDeviceLocalFlag))
-  vkcall(vkBindBufferMemory(device, _TmpCube.vbo, _TmpCube.vHandle, 0))
-
-  //index buffer
-  vkcall(vkh::CreateBuffer(device, &_TmpCube.ibo, _TmpCube.data.IndiceBytes, VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
-                          VK_BUFFER_USAGE_TRANSFER_DST_BIT))
-
-  vkGetBufferMemoryRequirements(device, _TmpCube.ibo, &req);
-  _TmpCube.iDataSize = req.size;
-
-  vkcall(MemoryVK::Allocate(device, &_TmpCube.iHandle, req.size, _macosDeviceLocalFlag))
-  vkcall(vkBindBufferMemory(device, _TmpCube.ibo, _TmpCube.iHandle, 0))
-
-
-  void* dat;
-  void* data;
-  vkcall(vkMapMemory(device, stagingBuffers[0].second, 0, VK_WHOLE_SIZE, 0, &dat))
-  memcpy(dat, _TmpCube.data.vertices, _TmpCube.data.VertexBytes);
-  vkUnmapMemory(device, stagingBuffers[0].second);
-
-  vkcall(vkMapMemory(device, stagingBuffers[1].second, 0, VK_WHOLE_SIZE, 0, &data))
-  memcpy(data, _TmpCube.data.indices, _TmpCube.data.IndiceBytes);
-  vkUnmapMemory(device, stagingBuffers[1].second);
-
-  ivk::CopyBufferOp cpy[2]{
-    {stagingBuffers[0].first, _TmpCube.vbo, 0, 0, _TmpCube.data.VertexBytes},
-    {stagingBuffers[1].first, _TmpCube.ibo, 0, 0, _TmpCube.data.IndiceBytes},
-  };
-
-  ivk::CopyBuffers(device, mainCommandBuffer, cpy, 2);
-
-  VkSubmitInfo submitInfo{};
-  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-  submitInfo.pNext = nullptr;
-  submitInfo.commandBufferCount = 1;
-  submitInfo.pCommandBuffers = &mainCommandBuffer;
-
-  vkcall(vkQueueSubmit(graphicQueue, 1, &submitInfo, VK_NULL_HANDLE))
-  vkcall(vkQueueWaitIdle(graphicQueue))
-
-  //texture 
-  std::string texpath(_SSF_GENERATED_TEXTURE_FOLDER);;
-  ssf::core::ImageData image  = ssf::core::LoadImage(texpath.append("404.png").c_str());
-  ssf::core::UnloadImage(image);
-
-  VkExtent3D exent{static_cast<uint32_t>(image.width), static_cast<uint32_t>(image.height), 1};
-
-  vkcall(ivk::wrappers::CreateImage(device, VK_FORMAT_R8G8B8A8_SRGB, exent, VK_IMAGE_TYPE_2D,1,
-  VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_SAMPLE_COUNT_1_BIT,
-  VK_IMAGE_TILING_OPTIMAL, 1, 0, &_TmpCube.texture))
-
-  VkMemoryRequirements textureReq{};
-  vkGetImageMemoryRequirements(device, _TmpCube.texture, &textureReq);
-  vkcall(MemoryVK::Allocate(device, &_TmpCube.texHandle, textureReq.size, _macosDeviceLocalFlag))
-  vkcall(vkBindImageMemory(device, _TmpCube.texture, _TmpCube.texHandle, 0))
-
-  VkComponentMapping mappings{ VK_COMPONENT_SWIZZLE_R,
-    VK_COMPONENT_SWIZZLE_G,
-    VK_COMPONENT_SWIZZLE_B,
-    VK_COMPONENT_SWIZZLE_A
-  };
-
-  VkImageSubresourceRange range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-  ivk::wrappers::CreateImageView2D(device, _TmpCube.texture, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_VIEW_TYPE_2D, mappings, range, &_TmpCube.textureView);
-
-
-  ivk::TransitionImageLayoutData transtionData{
-    _TmpCube.texture,
-    VK_ACCESS_NONE, VK_ACCESS_TRANSFER_WRITE_BIT,
-    VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-    range
-  };
-  
-  vkResetCommandBuffer(mainCommandBuffer, 0);
-
-  ivk::wrappers::BeginCommandBuffer(mainCommandBuffer);
-  ivk::TransitionImageLayoutsOp(mainCommandBuffer, &transtionData, 1, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
-
-  vkcall(vkMapMemory(device, stagingBuffers[0].second, 0, image.bytes, 0, &data))
-  memcpy(data, image.data, image.bytes);
-  vkUnmapMemory(device, stagingBuffers[0].second);
-
-  VkBufferImageCopy c{};
-  c.bufferImageHeight = 0;
-  c.bufferOffset = 0;
-  c.bufferRowLength = 0;
-  c.imageOffset = {0,0,0};
-  c.imageExtent = exent;
-  c.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-  c.imageSubresource.baseArrayLayer = 0;
-  c.imageSubresource.layerCount = 1;
-  c.imageSubresource.mipLevel = 0;
-  vkCmdCopyBufferToImage(mainCommandBuffer, stagingBuffers[0].first, _TmpCube.texture, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &c);
-  
-  transtionData.prevAccess = VK_ACCESS_TRANSFER_WRITE_BIT;
-  transtionData.nextAccess = VK_ACCESS_SHADER_READ_BIT;
-  transtionData.prevLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-  transtionData.nextLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  ivk::TransitionImageLayoutsOp(mainCommandBuffer, &transtionData, 1, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-  ivk::wrappers::EndCommandBuffer(mainCommandBuffer);
-
-  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-  submitInfo.pNext = nullptr;
-  submitInfo.commandBufferCount = 1;
-  submitInfo.pCommandBuffers = &mainCommandBuffer;
-
-  vkcall(vkQueueSubmit(graphicQueue, 1, &submitInfo, VK_NULL_HANDLE))
-  vkcall(vkQueueWaitIdle(graphicQueue))
-
-  VkDescriptorImageInfo imageInfo{};
-  imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  imageInfo.imageView = _TmpCube.textureView;
-  imageInfo.sampler = fiSamplers[Sampler::ClampTexture];
-
-  for (size_t i = 0; i < 2; i++) {
-
-    VkWriteDescriptorSet s{};
-    s.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    s.pNext = 0;
-    s.dstSet = textureDescSet[i];
-    s.dstBinding = 0;
-    s.dstArrayElement = 0;
-    s.descriptorCount = 1;
-    s.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    s.pImageInfo = &imageInfo;
-    s.pBufferInfo = nullptr;
-    s.pTexelBufferView = nullptr;
-    vkUpdateDescriptorSets(device, 1, &s, 0, nullptr);
-}
-
   //constantbuffer
   glm::mat4 x = glm::mat4(1);
   memcpy(DefaultGPassStub.transform, &x, sizeof(glm::mat4));
@@ -1091,9 +953,6 @@ ResourceHandle VK::CreateCubeMap(uint32_t size){
 
 
 void VK::Destroy(){
-  vkDestroyBuffer(device, _TmpCube.ibo, nullptr);
-  vkDestroyBuffer(device, _TmpCube.vbo, nullptr);
-
   vkDestroyDevice(device, nullptr);
   vkDestroyInstance(instance, nullptr);
 }

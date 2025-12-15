@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-namespace ssf{
+namespace juye{
   typedef uint16_t ActionHandle;
 
   ActionHandle CreateAction(); 

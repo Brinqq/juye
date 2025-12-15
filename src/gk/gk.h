@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/device.h"
+#include "core/drivers/device.h"
 
 //public ssf
 #include "keyboard.h"

@@ -1,6 +1,6 @@
 #include "vkshader.h"
 #include "vkdefines.h"
-#include "core/gpu/VK/vk_debug.h"
+#include "core/drivers/VK/vk_debug.h"
 #include "core/debug.h"
 
 #include "core/configuration/build_generation.h"

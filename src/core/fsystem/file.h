@@ -2,7 +2,7 @@
 
 #include "core/global.h"
 
-namespace ssf::core{
+namespace juye{
 
 struct ImageData{
   void* data;

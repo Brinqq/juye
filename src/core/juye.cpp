@@ -1,8 +1,8 @@
-#include "ssf/ssf.h"
+#include "juye/juye.h"
 #include <stdio.h>
 
-#include "gpu/VK/vk_core.h"
-#include "device.h"
+#include "drivers/VK/vk_core.h"
+#include "drivers/device.h"
 
 #include "gk/gk.h"
 
@@ -10,7 +10,7 @@
 
 bool gApplicationClose = true;
 
-namespace ssf{
+namespace juye{
 
 int Init(){
   //core systems
@@ -26,8 +26,9 @@ int Init(){
     graphics.Tick();
   };
 
-
   graphics.Destroy();
+
+
   return 0;
 }
 

@@ -327,28 +327,6 @@ struct GpuCubeMap{
   bk::bucket<ImageResource, 10> imageLUT;
   //tmp
 
-  struct{
-    const ssf::prefabs::TexturedCube<uint16_t> data;
-    VkBuffer vbo;
-    VkDeviceMemory vHandle;
-    uint64_t vDataSize;
-
-    VkBuffer ibo;
-    VkDeviceMemory iHandle;
-    uint64_t iDataSize;
-
-    VkImage texture;
-    VkImageView textureView;
-    VkDeviceMemory texHandle;
-
-    std::array<VkDescriptorSet, 2> textureDescSet;
-    VkSampler sampler;
-
-    glm::mat4 mvp[3];
-    
-
-  }_TmpCube;
-
 private:
   //Dynamic state Initialization
   
