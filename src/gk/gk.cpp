@@ -1,5 +1,6 @@
 #include "gk.h"
-#include "gk/prefabs.h"
+#include "juye/prefabs.h"
+#include "core/global.h"
 
 #include "core/drivers/device.h"
 #include "core/fsystem/file.h"
@@ -18,6 +19,8 @@
 //   device.CreateGraphicWindow(1920, 1080, "sim");
 //   vulkan.CreateGraphicsState(device);
 // }
+
+using namespace juye;
 
 extern bool gApplicationClose;
 
@@ -121,7 +124,7 @@ CubeMapWriteDescription CubeMapDataGenerate(){
 
   CubeMapWriteDescription ret{};
   for(int i = 0; i < 7; ++i){
-    if(skyboxData[i].data == nullptr){ssf_runtime_error();}
+    if(skyboxData[i].data == nullptr){juye_runtime_error();}
     ret.data[i] = skyboxData[i].data;
     ret.bytes[i] = skyboxData[i].bytes;
   }
@@ -157,8 +160,18 @@ int GK::Init(VK& vulkan){
   plane.push[0] = glm::scale(plane.push[0], glm::vec3(20.0f, 0.0f, 20.0f));
 
 
-  juye::prefabs::TexturedCube<uint16_t> cube;
-  juye::prefabs::TexturedPlane<uint16_t> planePrefab;
+  // juye::prefabs::TexturedCube<uint16_t> cube;
+  // juye::prefabs::TexturedPlane<uint16_t> planePrefab;
+
+
+
+  Prefab cube = Prefab::Builder()
+               .SetMesh(Prefab::PrefabMeshCube)
+               .Build();
+
+  Prefab planePrefab = Prefab::Builder()
+               .SetMesh(Prefab::PrefabMeshCube)
+               .Build();
 
   std::string texpath(_SSF_GENERATED_TEXTURE_FOLDER);;
   std::string texpath2(_SSF_GENERATED_TEXTURE_FOLDER);;
@@ -168,20 +181,20 @@ int GK::Init(VK& vulkan){
   GeometryData dat;
   GeometryData geometryPlane;
 
-  dat.pVertex = (void*)cube.vertices;
-  dat.pIndices = (void*)cube.indices;
-  dat.indicesBytes = cube.IndiceBytes;
-  dat.vertexBytes = cube.VertexBytes;
-  dat.numIndices = cube.nIndices;
+  dat.pVertex = (void*)cube.pVertices;
+  dat.pIndices = (void*)cube.pIndices;
+  dat.indicesBytes = cube.indices * sizeof(uint16_t);
+  dat.vertexBytes = cube.vertices * cube.stride;
+  dat.numIndices = cube.indices;
   dat.texture = image.data;
   dat.textureWidth = image.width;
   dat.textureHeight = image.height;
 
-  geometryPlane.pVertex = (void*)planePrefab.vertices;
-  geometryPlane.pIndices = (void*)planePrefab.indices;
-  geometryPlane.indicesBytes = planePrefab.IndiceBytes;
-  geometryPlane.vertexBytes = planePrefab.VertexBytes;
-  geometryPlane.numIndices = planePrefab.nIndices;
+  geometryPlane.pVertex = (void*)planePrefab.pVertices;
+  geometryPlane.pIndices = (void*)planePrefab.pIndices;
+  geometryPlane.indicesBytes = planePrefab.indices * sizeof(uint16_t);
+  geometryPlane.vertexBytes = planePrefab.vertices * planePrefab.stride;
+  geometryPlane.numIndices = planePrefab.indices;
   geometryPlane.texture = pimage.data;
   geometryPlane.textureWidth = pimage.width;
   geometryPlane.textureHeight = pimage.height;
