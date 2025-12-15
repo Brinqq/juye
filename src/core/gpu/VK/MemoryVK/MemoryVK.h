@@ -5,6 +5,7 @@
 namespace MemoryVK{
 
 VkResult Allocate(VkDevice device, VkDeviceMemory* handle, VkDeviceSize bytes, uint32_t type);
+void Deallocate(VkDevice device, VkDeviceMemory memory, VkAllocationCallbacks* allocator);
 
 }
 

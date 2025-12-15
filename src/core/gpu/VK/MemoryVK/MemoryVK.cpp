@@ -11,3 +11,9 @@ VkResult MemoryVK::Allocate(VkDevice device, VkDeviceMemory* handle, VkDeviceSiz
 
   return vkAllocateMemory(device, &mem, nullptr, handle);
 }
+
+void MemoryVK::Deallocate(VkDevice device, VkDeviceMemory memory, VkAllocationCallbacks* allocator){
+  vkFreeMemory(device, memory, allocator);
+}
+
+
