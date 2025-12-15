@@ -11,6 +11,14 @@ enum QueueBitTypes{
   QueueBitSparse = 0x32
 };
 
+
+enum ShaderStageType{
+  ShaderStageNone = - 1,
+  ShaderStageVertex,
+  ShaderStagePixel,
+  ShaderStageCompute,
+};
+
 struct QueueFamily{
   uint8_t index;
   uint8_t maxQueues;

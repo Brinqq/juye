@@ -56,15 +56,15 @@ void DestroySamplers(VkDevice device, VkSampler* samplers, uint32_t count, const
   }
 }
 
-VkResult CreateImage2D(VkDevice device, VkFormat format, VkExtent3D extent, uint32_t mips,
-                       VkImageUsageFlags usage, VkImageLayout layout, VkSampleCountFlagBits MSAA,
-                       VkImageTiling VK_IMAGE_TILING_OPTIMAL, uint32_t layers, VkImage* pImage){
+VkResult CreateImage(VkDevice device, VkFormat format, VkExtent3D extent, VkImageType type, uint32_t mips,
+                     VkImageUsageFlags usage, VkImageLayout layout, VkSampleCountFlagBits MSAA,
+                     VkImageTiling VK_IMAGE_TILING_OPTIMAL, uint32_t layers, VkImageCreateFlags flags, VkImage* pImage){
 
   VkImageCreateInfo image{};
   image.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
   image.pNext = nullptr;
-  image.flags = 0;
-  image.imageType = VK_IMAGE_TYPE_2D;
+  image.flags = flags;
+  image.imageType = type;
   image.format = format;
   image.extent = extent;
   image.usage = usage;
@@ -72,21 +72,21 @@ VkResult CreateImage2D(VkDevice device, VkFormat format, VkExtent3D extent, uint
   image.mipLevels = mips;
   image.samples = VK_SAMPLE_COUNT_1_BIT;
   image.tiling = VK_IMAGE_TILING_OPTIMAL;
-  image.arrayLayers = 1;
+  image.arrayLayers = layers;
   image.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
   image.queueFamilyIndexCount = 0;
   image.pQueueFamilyIndices = nullptr;
   return vkCreateImage(device, &image, nullptr, pImage);
 }
 
-VkResult CreateImageView2D(VkDevice device, VkImage image, VkFormat format, const VkComponentMapping& components
+VkResult CreateImageView2D(VkDevice device, VkImage image, VkFormat format, VkImageViewType type,  const VkComponentMapping& components
                           ,const VkImageSubresourceRange& range, VkImageView* pImageView){
   VkImageViewCreateInfo view{};
   view.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
   view.pNext = nullptr;
   view.flags = 0;
   view.image = image;
-  view.viewType =  VK_IMAGE_VIEW_TYPE_2D;
+  view.viewType =  type;
   view.format = format;
   view.components = components;
   view.subresourceRange = range;

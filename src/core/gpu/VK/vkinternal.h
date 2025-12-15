@@ -1,7 +1,9 @@
 #pragma once
 
-#include "vk_defines.h"
+#include "vkdefines.h"
 #include <utility>
+
+#include <bcl/containers/span.h>
 
 struct ShaderContainer;
 
@@ -26,6 +28,9 @@ struct TransitionImageLayoutData{
 
 // Creation functions
 VkResult CreateGraphicPipeline(VkDevice device, const ShaderContainer& container, VkPipelineLayout layout, VkRenderPass renderpass, VkPipeline* pipeline);
+
+VkResult CreatePipelineLayoutFromContainer(VkDevice device, const ShaderContainer& container,
+                                           const bk::span<VkDescriptorSetLayout>& sets,VkPipelineLayout* layout);
 
 //runtime operations
 //NOTE: all functions with the suffix "Op" expect for Begin and end expect a command buffer to already be in recording.

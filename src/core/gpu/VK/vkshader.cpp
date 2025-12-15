@@ -1,4 +1,5 @@
-#include "shader_core.h"
+#include "vkshader.h"
+#include "vkdefines.h"
 #include "core/gpu/VK/vk_debug.h"
 #include "core/debug.h"
 

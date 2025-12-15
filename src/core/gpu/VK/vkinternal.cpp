@@ -1,5 +1,5 @@
-#include "vk_internal.h"
-#include "shader/shader_core.h"
+#include "vkinternal.h"
+#include "vkshader.h"
 
 #include <bcl/containers/vector.h>
 
@@ -164,6 +164,21 @@ void CopyBuffers(VkDevice device, VkCommandBuffer buf, CopyBufferOp* pCopyOp, ui
   }
 
   vkEndCommandBuffer(buf);
+}
+
+VkResult CreatePipelineLayoutFromContainer(VkDevice device, const ShaderContainer& container,
+                                           const bk::span<VkDescriptorSetLayout>& sets,VkPipelineLayout* layout){
+
+  VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+  pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+  pipelineLayoutInfo.pNext = nullptr;
+  pipelineLayoutInfo.flags = 0;
+  pipelineLayoutInfo.pushConstantRangeCount = container.resources.pushRanges.size();
+  pipelineLayoutInfo.pPushConstantRanges = container.resources.pushRanges.data();
+  pipelineLayoutInfo.setLayoutCount = sets.size();
+  pipelineLayoutInfo.pSetLayouts = sets.data();
+
+  return vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, layout);
 }
 
 

@@ -9,11 +9,11 @@ namespace ivk::wrappers{
   VkResult EndCommandBuffer(VkCommandBuffer buf);
 
 
-VkResult CreateImage2D(VkDevice device, VkFormat format, VkExtent3D extent, uint32_t mips,
+VkResult CreateImage(VkDevice device, VkFormat format, VkExtent3D extent, VkImageType type, uint32_t mips,
                        VkImageUsageFlags usage, VkImageLayout layout, VkSampleCountFlagBits MSAA,
-                       VkImageTiling VK_IMAGE_TILING_OPTIMAL, uint32_t layers, VkImage* pImage);
+                       VkImageTiling VK_IMAGE_TILING_OPTIMAL, uint32_t layers, VkImageCreateFlags flags, VkImage* pImage);
 
-VkResult CreateImageView2D(VkDevice device, VkImage image, VkFormat format, const VkComponentMapping& components
+VkResult CreateImageView2D(VkDevice device, VkImage image, VkFormat format, VkImageViewType type, const VkComponentMapping& components
                           ,const VkImageSubresourceRange& range, VkImageView* pImageView);
 
 VkResult CreateSampler(VkDevice device, VkSamplerAddressMode mode, bool aniso, uint32_t ansioMax,
