@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 4.0.0)
-project(ssf)
+project(juye)
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -18,21 +18,20 @@ set(files
   "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/gk.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/actions.cpp"
   # core
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/device.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/ssf.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/gpu/VK/vk_core.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/gpu/VK/vk_helper.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/gpu/VK/vkinternal.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/gpu/VK/vk_wrappers.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/gpu/VK/MemoryVK/MemoryVK.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/gpu/VK/vkshader.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/juye.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/device.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/vk_core.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/vk_helper.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/vkinternal.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/vk_wrappers.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/MemoryVK/MemoryVK.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/vkshader.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/fsystem/image.cpp"
 )
 
 configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/configuration/build_generation.h.in"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/configuration/build_generation.h"
-
 )
 
 
