@@ -1,10 +1,9 @@
 #pragma once
 
-#include "vk_defines.h"
+#include "vkdefines.h"
 
 #include <vector>
 #include <array>
-
 #include <list>
 
 #include <bcl/containers/vector.h>
@@ -59,9 +58,11 @@ struct GeometryData{
 };
 
 
-struct CubeMapData{
+struct CubeMapWriteDescription{
+
 };
 
+typedef void* ResourceHandle;
 
 class VK{
 private:
@@ -133,14 +134,14 @@ private:
     bcl::small_vector<Swapchain::Data, 3> buf;
   };
 
-  struct AttachmentMemoryRegistry{
+  struct AttachmentResources{
     VkImage image;
     VkImageView view;
     VkFormat format;
     VkDeviceMemory memory;
   };
 
-  struct RenderAttachment{
+  struct AttachmentDescription{
     VkFormat format;
     VkImageLayout gpuRefLayout;
     VkImageLayout finalLayout;
@@ -148,12 +149,18 @@ private:
     int preserveDepth[kMaxSubpasses];
   };
 
-  struct DrawState{
+  struct RenderCommandEntry{
     VkPipeline pipeline;
     VkPipelineLayout layout;
     VkDescriptorSetLayout* DSL;
     bcl::small_vector<VkDescriptorSet*, 5> sets;
     void* push;
+    void(*Exectute)();
+  };
+
+  struct CommandStream{
+    RenderCommandEntry* states;
+     uint32_t count;
   };
 
   struct RPassState{
@@ -162,12 +169,23 @@ private:
     VkFramebuffer* framebuffers[kMaxFrameQueue];
   };
 
+  struct ImageResource{
+    VkImage image;
+    VkDeviceMemory memory;
+    VkExtent3D extent;
+  };
+
   struct DepthBuffer{
     VkImage image;
     VkImageView view;
     VkDeviceMemory memory;
     VkFormat format;
   };
+
+struct GpuCubeMap{
+  VkImageView view;
+  ImageResource* resource;
+};
 
   struct GpuBuffer{
     VkBuffer handle;
@@ -182,6 +200,8 @@ private:
     VkImageView view;
     VkDescriptorSet descriptor;
   };
+
+
 
   struct GeometryPassPush{
     float transform[16];
@@ -217,7 +237,9 @@ private:
   std::array<VkSemaphore, Semaphore::Count> semaphores;
   std::array<VkFence, Fence::Count> fences;
 
-  std::list<VkDescriptorSetLayout> DSLS;
+
+  bk::bucket<VkDescriptorSetLayout, 3> descriptorSetLayoutLut;
+
 
   enum DescriptorResourceFlags{
     Texture = 0x0,
@@ -240,7 +262,7 @@ private:
 
 
   //dyn state
-  std::unordered_map<VkFramebuffer, AttachmentMemoryRegistry> attachmentMemories;
+  std::unordered_map<VkFramebuffer, AttachmentResources> attachmentMemories;
 
   bk::bucket<VkFramebuffer, 10> framebufferss;
   
@@ -273,8 +295,8 @@ private:
   VkRenderPass mainRenderpass;
   VkPipeline mainPipeline;
   VkDescriptorPool geoPassDescriptorPool;
-  VkDescriptorSetLayout geoPassDescriptorLayout;
-  VkPipelineLayout geoPassPipelineLayout;
+
+
   std::array<VkDescriptorSet, 2> textureDescSet;
 
   VkCommandPool graphicsPool;
@@ -290,6 +312,16 @@ private:
   std::pair<VkBuffer, VkDeviceMemory> stagingBuffers[2];
 
   ivk::FeatureSet features;
+
+  //tmp
+  VkPipelineLayout geoPassPipelineLayout;
+  VkDescriptorSetLayout* geoPassDescriptorLayout;
+  VkPipeline skyboxPipeline;
+  VkPipelineLayout skyboxPipelineLayout;
+  VkDescriptorSetLayout* skyboxDescriptorLayout;;
+  bk::bucket<ResourceHandle, 10> resourceLUT;
+  bk::bucket<ImageResource, 10> imageLUT;
+  //tmp
 
   struct{
     const ssf::prefabs::TexturedCube<uint16_t> data;
@@ -330,15 +362,12 @@ private:
 
   void GpuUploadBufData(VkCommandBuffer cmdBuf, VkDeviceMemory stage, VkBuffer srcBuf, VkBuffer dstBuf, const void* const pData, size_t bytes);
   void GpuUploadImageData(VkCommandBuffer cmdBuf,VkExtent3D extent, VkDeviceMemory stage, VkBuffer srcBuf, VkImage dstBuf, const void* const pData);
-  int CreateRenderPass(const bk::span<RenderAttachment>& attachments, uint32_t numSubpasses, const RenderPassCreateFlags flags, VkRenderPass* pRenderpass);
+  int CreateRenderPass(const bk::span<AttachmentDescription>& attachments, uint32_t numSubpasses, const RenderPassCreateFlags flags, VkRenderPass* pRenderpass);
 
   void DestroyGraphicPipeline();
 
-  VkPipelineLayout CreatePipelineLayoutFromContainer(const ShaderContainer& container);
-
 public:
 
-  typedef int ResourceHandle;
 
   int Init();
   void Destroy();
@@ -349,8 +378,10 @@ public:
   GeoHandle CreateGeometry(const GeometryData& geo);
   void DestroyGeometry(GeoHandle& geometry);
 
-  ResourceHandle CreateCubeMap(const CubeMapData& data);
+  ResourceHandle CreateCubeMap(uint32_t size);
+  void WriteCubeMap(ResourceHandle handle, const CubeMapWriteDescription& desc);
   void DestroyCubeMap(ResourceHandle handle);
+
 
   void MapGeometryPassPushBuf(GeoHandle& handle, void* pData);
   void UnmapGeometryPassPushBuf(GeoHandle& handle);
@@ -361,7 +392,7 @@ public:
   int CreateGraphicsState(Device& device);
   int DestroyGraphicsState();
 
-  void SetSkyBox(const void* texture, uint32_t width, uint32_t height);
+  void SetSkyBox(ResourceHandle cubmap);
 
   void Draw();
   void TestTriangle();

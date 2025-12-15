@@ -1,11 +1,11 @@
 #include "vk_core.h"
 #include "vk_debug.h"
 #include "vk_helper.h"
-#include "vk_defines.h"
-#include "vk_internal.h"
+#include "vkdefines.h"
+#include "vkinternal.h"
 #include "vk_wrappers.h"
 #include "MemoryVK/MemoryVK.h"
-#include "shader/shader_core.h"
+#include "vkshader.h"
 
 #include "core/configuration//build_generation.h"
 #include "core/device.h"
@@ -22,8 +22,8 @@
 #include <bcl/containers/span.h>
 #include <bcl/containers/bucket.h>
 
-const char* kGeometryPipelineMetaPath = "/Users/brinq/.dev/projects/solar-sim/ssf/data/shaders/builtin_geometrypass.meta.yaml";
-const char* kSkyboxPipelineMetaPath = "/Users/brinq/.dev/projects/solar-sim/ssf/data/shaders/builtin_skybox.meta.yaml";
+
+//opaque structure implementations
 
 int VK::CreateComputeState(){
   return 0;
@@ -34,7 +34,7 @@ void VK::SwapBackBuffers(){
 }
 
 
-int VK::CreateRenderPass(const bk::span<RenderAttachment>& attachments, uint32_t numSubpasses, const RenderPassCreateFlags flags, VkRenderPass* pRenderpass){
+int VK::CreateRenderPass(const bk::span<AttachmentDescription>& attachments, uint32_t numSubpasses, const RenderPassCreateFlags flags, VkRenderPass* pRenderpass){
   const int kSubpassSpillThreshold = 4;
   const int kAttachmentSpillThreshold = 10;
 
@@ -57,7 +57,7 @@ int VK::CreateRenderPass(const bk::span<RenderAttachment>& attachments, uint32_t
   VkAttachmentReference* depthRef = nullptr;
 
   int i = 0;
-  for(RenderAttachment& e : attachments){
+  for(AttachmentDescription& e : attachments){
     VkAttachmentDescription atDescription{};
     VkAttachmentReference atRef{};
 
@@ -165,37 +165,6 @@ int VK::CreateRenderPass(const bk::span<RenderAttachment>& attachments, uint32_t
   return 0;
 }
 
-
-VkPipelineLayout VK::CreatePipelineLayoutFromContainer(const ShaderContainer& container){
-
-  VkDescriptorSetLayoutBinding dslb{};
-  dslb.binding = 0;
-  dslb.descriptorCount = 1;
-  dslb.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  dslb.pImmutableSamplers = nullptr;
-  dslb.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-  VkDescriptorSetLayoutCreateInfo cLayoutInfo{};
-  cLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-  cLayoutInfo.bindingCount = 1;
-  cLayoutInfo.pBindings = &dslb;
-  vkcall(vkCreateDescriptorSetLayout(device, &cLayoutInfo, nullptr, &geoPassDescriptorLayout))
-
-  VkPipelineLayoutCreateInfo cPipelineLayout{};
-  cPipelineLayout.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-  cPipelineLayout.pNext = nullptr;
-  cPipelineLayout.flags = 0;
-  cPipelineLayout.pushConstantRangeCount = container.resources.pushRanges.size();
-  cPipelineLayout.pPushConstantRanges = container.resources.pushRanges.data();
-  cPipelineLayout.setLayoutCount = 1;
-  cPipelineLayout.pSetLayouts = &geoPassDescriptorLayout;
-
-  VkPipelineLayout ret;
-  vkcall(vkCreatePipelineLayout(device, &cPipelineLayout, nullptr, &ret))
-  return ret;
-}
-
-
 int VK::CreateGraphicsState(Device& applicationDevice){
   
   surface = vkh::GetPlatformSurface(instance, static_cast<GLFWwindow*>(applicationDevice.GraphicsWindow));
@@ -234,11 +203,11 @@ int VK::CreateGraphicsState(Device& applicationDevice){
     swapchainViews[i] = vkh::CreateImageView(device, swapchainImages[i], VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);   
   }
 
-  vkcall(ivk::wrappers::CreateImage2D(device, VK_FORMAT_D32_SFLOAT, 
-                                      VkExtent3D{swapchainExtent.width, swapchainExtent.height, 1},
-                                      1, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+  vkcall(ivk::wrappers::CreateImage(device, VK_FORMAT_D32_SFLOAT, 
+                                      VkExtent3D{swapchainExtent.width, swapchainExtent.height, 1}, 
+                                      VK_IMAGE_TYPE_2D, 1, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
                                       VK_IMAGE_LAYOUT_UNDEFINED, VK_SAMPLE_COUNT_1_BIT,
-                                      VK_IMAGE_TILING_OPTIMAL, 0, &depthBuffer.image
+                                      VK_IMAGE_TILING_OPTIMAL, 1, 0,&depthBuffer.image
                                       ))
 
   VkMemoryRequirements depthRequirements;
@@ -247,7 +216,7 @@ int VK::CreateGraphicsState(Device& applicationDevice){
   vkcall(vkBindImageMemory(device, depthBuffer.image, depthBuffer.memory, 0))
   depthBuffer.view = vkh::CreateImageView(device, depthBuffer.image, VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_D32_SFLOAT, VK_IMAGE_ASPECT_DEPTH_BIT);
 
-  RenderAttachment f{
+  AttachmentDescription f{
     VK_FORMAT_B8G8R8A8_UNORM,
     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
     VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
@@ -287,17 +256,57 @@ int VK::CreateGraphicsState(Device& applicationDevice){
   textureDP.resize(3);
   tCreateDescriptorPools(DescriptorPoolTexture, 3, textureDP.data());
 
+
+  // ------------------------------------------------------------------------------------
+  //  for now we hardcode these because i just dont know how
+  //  handle these for now
+  // ------------------------------------------------------------------------------------
+  VkDescriptorSetLayoutBinding geoBindings{};
+  geoBindings.binding = 0;
+  geoBindings.descriptorCount = 1;
+  geoBindings.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  geoBindings.pImmutableSamplers = nullptr;
+  geoBindings.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+  VkDescriptorSetLayoutCreateInfo geoLayoutInfo{};
+  geoLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  geoLayoutInfo.bindingCount = 1;
+  geoLayoutInfo.pBindings = &geoBindings;
+
+  VkDescriptorSetLayoutBinding skyboxBindings{};
+  skyboxBindings.binding = 0;
+  skyboxBindings.descriptorCount = 1;
+  skyboxBindings.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  skyboxBindings.pImmutableSamplers = nullptr;
+  skyboxBindings.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+  VkDescriptorSetLayoutCreateInfo nskyboxLayoutInfo{};
+  nskyboxLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  nskyboxLayoutInfo.bindingCount = 1;
+  nskyboxLayoutInfo.pBindings = &skyboxBindings;
+
+  const char* kGeometryPipelineMetaPath = "/Users/brinq/.dev/projects/solar-sim/ssf/data/shaders/builtin_geometrypass.meta.yaml";
+  const char* kSkyboxPipelineMetaPath = "/Users/brinq/.dev/projects/solar-sim/ssf/data/shaders/builtin_skybox.meta.yaml";
+
   ShaderContainer geometryPassShader =  BuildShaderFromMetaFile(device, nullptr, kGeometryPipelineMetaPath);
   ShaderContainer skyBoxShader =  BuildShaderFromMetaFile(device, nullptr, kSkyboxPipelineMetaPath);
 
-  geoPassPipelineLayout = CreatePipelineLayoutFromContainer(geometryPassShader);
-  // geoPassPipelineLayout = CreatePipelineLayoutFromContainer(skyBoxShader);
+  geoPassDescriptorLayout = &descriptorSetLayoutLut.construct();
+  skyboxDescriptorLayout = &descriptorSetLayoutLut.construct();
 
+  vkcall(vkCreateDescriptorSetLayout(device, &geoLayoutInfo, nullptr, geoPassDescriptorLayout))
+  vkcall(vkCreateDescriptorSetLayout(device, &geoLayoutInfo, nullptr, skyboxDescriptorLayout))
+
+  vkcall(ivk::CreatePipelineLayoutFromContainer(device, geometryPassShader, bk::span(geoPassDescriptorLayout, 1), &geoPassPipelineLayout))
+  vkcall(ivk::CreatePipelineLayoutFromContainer(device, skyBoxShader, bk::span(skyboxDescriptorLayout, 1), &skyboxPipelineLayout))
 
   vkcall(ivk::CreateGraphicPipeline(device, geometryPassShader, geoPassPipelineLayout, mainRenderpass, &mainPipeline))
+  vkcall(ivk::CreateGraphicPipeline(device, skyBoxShader, skyboxPipelineLayout, mainRenderpass, &skyboxPipeline))
 
   ShaderFreeContainer(device, nullptr, &geometryPassShader);
   ShaderFreeContainer(device, nullptr, &skyBoxShader);
+  // ------------------------------------------------------------------------------------
+  // ------------------------------------------------------------------------------------
+
+
 
   VkCommandPoolCreateInfo cCommandPool{};
   cCommandPool.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -506,6 +515,9 @@ void VK::Draw(){
     vkCmdDrawIndexed(mainCommandBuffer, e.numIndices, 1 ,0 ,0, 0);
   }
 
+  vkCmdBindPipeline(mainCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, skyboxPipeline);
+  vkCmdDraw(mainCommandBuffer, 3, 1 ,0 ,0);
+
   vkCmdEndRenderPass(mainCommandBuffer);
   vkEndCommandBuffer(mainCommandBuffer);
 
@@ -593,9 +605,9 @@ void VK::TestTriangle(){
 
   VkExtent3D exent{static_cast<uint32_t>(image.width), static_cast<uint32_t>(image.height), 1};
 
-  vkcall(ivk::wrappers::CreateImage2D(device, VK_FORMAT_R8G8B8A8_SRGB, exent, 1,
+  vkcall(ivk::wrappers::CreateImage(device, VK_FORMAT_R8G8B8A8_SRGB, exent, VK_IMAGE_TYPE_2D,1,
   VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_SAMPLE_COUNT_1_BIT,
-  VK_IMAGE_TILING_OPTIMAL, 1, &_TmpCube.texture))
+  VK_IMAGE_TILING_OPTIMAL, 1, 0, &_TmpCube.texture))
 
   VkMemoryRequirements textureReq{};
   vkGetImageMemoryRequirements(device, _TmpCube.texture, &textureReq);
@@ -609,7 +621,7 @@ void VK::TestTriangle(){
   };
 
   VkImageSubresourceRange range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-  ivk::wrappers::CreateImageView2D(device, _TmpCube.texture, VK_FORMAT_R8G8B8A8_SRGB, mappings, range, &_TmpCube.textureView);
+  ivk::wrappers::CreateImageView2D(device, _TmpCube.texture, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_VIEW_TYPE_2D, mappings, range, &_TmpCube.textureView);
 
 
   ivk::TransitionImageLayoutData transtionData{
@@ -819,9 +831,9 @@ void VK::TestTriangle(){
     vkResetCommandBuffer(mainCommandBuffer, 0);
     vkcall(ivk::wrappers::BeginCommandBuffer(mainCommandBuffer))
 
-    vkcall(ivk::wrappers::CreateImage2D(device, VK_FORMAT_R8G8B8A8_SRGB, VkExtent3D{geo.textureWidth, geo.textureHeight, 1}, 1,
-    VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_SAMPLE_COUNT_1_BIT,
-    VK_IMAGE_TILING_OPTIMAL, 1, &tex))
+    vkcall(ivk::wrappers::CreateImage(device, VK_FORMAT_R8G8B8A8_SRGB, VkExtent3D{geo.textureWidth, geo.textureHeight, 1},
+    VK_IMAGE_TYPE_2D, 1, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_SAMPLE_COUNT_1_BIT,
+    VK_IMAGE_TILING_OPTIMAL, 1, 0, &tex))
 
     vkGetImageMemoryRequirements(device, tex, &memReq);
     vkcall(MemoryVK::Allocate(device, &handle, memReq.size, _macosDeviceLocalFlag))
@@ -829,7 +841,7 @@ void VK::TestTriangle(){
 
     VkImageSubresourceRange range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 
-    vkcall(ivk::wrappers::CreateImageView2D(device, tex, VK_FORMAT_R8G8B8A8_SRGB, defaultTextureCMapping, range, &view))
+    vkcall(ivk::wrappers::CreateImageView2D(device, tex, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_VIEW_TYPE_2D, defaultTextureCMapping, range, &view))
 
     texelList.push_back(GpuTexel{tex, handle, view});
     entry.texture = --texelList.end();
@@ -853,7 +865,7 @@ void VK::TestTriangle(){
     vkResetCommandBuffer(mainCommandBuffer, 0);
 
     VkDescriptorSetAllocateInfo dsai{};
-    dsai.pSetLayouts = &geoPassDescriptorLayout;
+    dsai.pSetLayouts = geoPassDescriptorLayout;
     dsai.descriptorPool = textureDP[0].pool;
     dsai.descriptorSetCount = 1;
     dsai.pNext = nullptr;
@@ -906,26 +918,8 @@ void VK::TestTriangle(){
   void VK::RemoveToDrawList(GeoHandle& geometry){}
 
 
-  void VK::SetSkyBox(const void* texture, uint32_t width, uint32_t height){
-    VkImage image;
-    VkImageView v;
-    VkMemoryRequirements requirements;
-    VkDeviceMemory memory;
-
-    vkcall(ivk::wrappers::CreateImage2D(device, VK_FORMAT_R8G8B8A8_SRGB, VkExtent3D{width, height, 1}, 1, 
-    VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_SAMPLE_COUNT_1_BIT,
-    VK_IMAGE_TILING_OPTIMAL, 6, &image))
+  void VK::SetSkyBox(ResourceHandle cubemap){
     
-    VkImageSubresourceRange sr;
-    sr.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    sr.baseArrayLayer = 0;
-    sr.baseMipLevel = 0;
-    sr.layerCount = 6;
-    sr.levelCount = 1;
-
-    vkcall(ivk::wrappers::CreateImageView2D(device, image, VK_FORMAT_R8G8B8A8_SRGB, defaultTextureCMapping, sr, &v))
-    vkGetImageMemoryRequirements(device, image, &requirements);
-    vkcall(MemoryVK::Allocate(device, &memory, requirements.size, _macosDeviceLocalFlag))
   };
 
   void VK::tCreateDescriptorPools(DescriptorPoolType type, uint32_t count, DescriptorPool* pMemory){
@@ -954,6 +948,48 @@ void VK::TestTriangle(){
       pMemory[i].maxSets = kMaxSets;
       pMemory[i].remainingSets = kMaxSets;
     }
+  }
+
+ResourceHandle VK::CreateCubeMap(uint32_t size){
+  VkImageView v;
+  VkImage image;
+  VkMemoryRequirements requirements;
+  VkDeviceMemory memory;
+
+  vkcall(ivk::wrappers::CreateImage(device, VK_FORMAT_R8G8B8A8_SRGB, VkExtent3D{size, size, 1}, VK_IMAGE_TYPE_2D, 1, 
+  VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_SAMPLE_COUNT_1_BIT,
+  VK_IMAGE_TILING_OPTIMAL, 6, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT, &image))
+   
+  VkImageSubresourceRange sr;
+  sr.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  sr.baseArrayLayer = 0;
+  sr.baseMipLevel = 0;
+  sr.layerCount = 6;
+  sr.levelCount = 1;
+  
+  vkGetImageMemoryRequirements(device, image, &requirements);
+  vkcall(MemoryVK::Allocate(device, &memory, requirements.size, _macosDeviceLocalFlag))
+  vkBindImageMemory(device, image, memory, 0);
+  vkcall(ivk::wrappers::CreateImageView2D(device, image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_VIEW_TYPE_CUBE, defaultTextureCMapping, sr, &v))
+
+  ImageResource* resource = &imageLUT.construct();
+  GpuCubeMap* ret = static_cast<GpuCubeMap*>(resourceLUT.construct());
+
+  *resource = ImageResource{ image, memory, VkExtent3D{size, size, 1}};
+  *ret  = GpuCubeMap{v, resource};
+  return ret;
+}
+
+
+  void VK::WriteCubeMap(ResourceHandle handle, const CubeMapWriteDescription& desc){
+    
+  }
+
+  void VK::DestroyCubeMap(ResourceHandle handle){
+    GpuCubeMap* h = static_cast<GpuCubeMap*>(handle);
+    vkDestroyImage(device, h->resource->image, nullptr);
+    vkDestroyImageView(device, h->view, nullptr);
+    MemoryVK::Deallocate(device, h->resource->memory, nullptr);
   }
 
 
