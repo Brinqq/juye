@@ -11,7 +11,6 @@
 #include <bcl/containers/bucket.h>
 
 //tmp
-#include "gk/prefabs.h"
 #include "glm/glm.hpp"
 //---------
 

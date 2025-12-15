@@ -39,7 +39,7 @@ int VK::CreateRenderPass(const bk::span<AttachmentDescription>& attachments, uin
   const int kAttachmentSpillThreshold = 10;
 
   if(numSubpasses > kMaxSubpasses){
-    ssf_runtime_error();
+    juye_runtime_error();
   }
 
   struct Subpass{
@@ -97,7 +97,7 @@ int VK::CreateRenderPass(const bk::span<AttachmentDescription>& attachments, uin
           break;
 
         default:
-          ssf_runtime_error();
+          juye_runtime_error();
     }
   }
 
@@ -286,8 +286,8 @@ int VK::CreateGraphicsState(Device& applicationDevice){
   nskyboxLayoutInfo.bindingCount = 1;
   nskyboxLayoutInfo.pBindings = &skyboxBindings;
 
-  const char* kGeometryPipelineMetaPath = "/Users/brinq/.dev/projects/solar-sim/ssf/data/shaders/builtin_geometrypass.meta.yaml";
-  const char* kSkyboxPipelineMetaPath = "/Users/brinq/.dev/projects/solar-sim/ssf/data/shaders/builtin_skybox.meta.yaml";
+  const char* kGeometryPipelineMetaPath = "/Users/brinq/.dev/projects/solar-sim/juye/data/shaders/builtin_geometrypass.meta.yaml";
+  const char* kSkyboxPipelineMetaPath = "/Users/brinq/.dev/projects/solar-sim/juye/data/shaders/builtin_skybox.meta.yaml";
 
   ShaderContainer geometryPassShader =  BuildShaderFromMetaFile(device, nullptr, kGeometryPipelineMetaPath);
   ShaderContainer skyBoxShader =  BuildShaderFromMetaFile(device, nullptr, kSkyboxPipelineMetaPath);
