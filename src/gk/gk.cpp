@@ -5,6 +5,7 @@
 #include "core/fsystem/file.h"
 #include "core/gpu/VK/vk_core.h"
 #include "core/configuration/build_generation.h"
+#include "core/debug.h"
 
 #include <stdio.h>
 #include <cassert>
@@ -105,7 +106,33 @@ void DevUpdateInput(){
 }
 
 
+
 ResourceHandle skybox;
+ssf::core::ImageData skyboxData[6];
+
+CubeMapWriteDescription CubeMapDataGenerate(){
+  skyboxData[5]  = ssf::core::LoadImage("/Users/brinq/.dev/projects/solar-sim/ssf/data/textures/px.png");
+  skyboxData[4]  = ssf::core::LoadImage("/Users/brinq/.dev/projects/solar-sim/ssf/data/textures/nx.png");
+  skyboxData[1]  = ssf::core::LoadImage("/Users/brinq/.dev/projects/solar-sim/ssf/data/textures/py.png");
+  skyboxData[0]  = ssf::core::LoadImage("/Users/brinq/.dev/projects/solar-sim/ssf/data/textures/ny.png");
+  skyboxData[2]  = ssf::core::LoadImage("/Users/brinq/.dev/projects/solar-sim/ssf/data/textures/pz.png");
+  skyboxData[3]  = ssf::core::LoadImage("/Users/brinq/.dev/projects/solar-sim/ssf/data/textures/nz.png");
+
+  CubeMapWriteDescription ret{};
+  for(int i = 0; i < 7; ++i){
+    if(skyboxData[i].data == nullptr){ssf_runtime_error();}
+    ret.data[i] = skyboxData[i].data;
+    ret.bytes[i] = skyboxData[i].bytes;
+  }
+
+  return ret;
+}
+
+void CubeMapDataCleanup(){
+  for(int i = 0; i < 6; ++i){
+    ssf::core::UnloadImage(skyboxData[i]);
+  }
+}
 
 int GK::Init(VK& vulkan){
   driver = &vulkan;
@@ -166,7 +193,12 @@ int GK::Init(VK& vulkan){
 
   ssf::core::UnloadImage(image);
   ssf::core::UnloadImage(pimage);
-  skybox =  driver->CreateCubeMap(1920);
+
+  CubeMapWriteDescription x = CubeMapDataGenerate();
+  skybox =  driver->CreateCubeMap(skyboxData[0].width);
+  driver->WriteCubeMap(skybox ,x);
+  driver->SetSkyBox(skybox);
+  CubeMapDataCleanup();
 
   gApplicationClose = false;
   return 0;
