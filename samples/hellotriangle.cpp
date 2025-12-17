@@ -1,5 +1,5 @@
 #include "juye/juye.h"
-#include "juye/prefabs.h"
+#include "juye/gk/prefabs.h"
 
 #include <stdio.h>
 
