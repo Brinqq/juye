@@ -341,9 +341,20 @@ struct GpuCubeMap{
   VkDescriptorSet projectionViewSet;
   const int kProjectionMatrixSize = 128;
 
-  
+  //light gpu storage - descriptor
+  static constexpr int kMaxLights = 2;
+  VkBuffer ambientLightGpuBuffer;
+  VkDeviceMemory ambientLightGpuMemory;
+  VkBuffer directionalLightGpuBuffer;
+  VkDeviceMemory directionalLightGpuMemory;
+  VkDescriptorSetLayout* lightDescriptorLayout;;
+  VkDescriptorSet lightDescriptorSet;
+
   bk::bucket<ResourceHandle, 10> resourceLUT;
   bk::bucket<ImageResource, 10> imageLUT;
+
+  
+  
   //------------------------------------------------------------------------------------------------------------------------------
   //------------------------------------------------------------------------------------------------------------------------------
 
@@ -352,6 +363,8 @@ private:
   
   //TMP:
   void tCreateDescriptorPools(DescriptorPoolType type, uint32_t count, DescriptorPool* pMemory);
+  void tCreateLightBuffers();
+  //
 
   
   //fixed State Initialization

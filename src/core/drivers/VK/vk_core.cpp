@@ -258,23 +258,32 @@ int VK::CreateGraphicsState(Device& applicationDevice){
    vkcall(vkCreateFramebuffer(device, &cFramebuffer2, nullptr, &framebuffers[1]))
   
   globalPool.resize(3);
-  tCreateDescriptorPools(DescriptorPoolTexture, 3, globalPool.data());
 
-  CreateFixedSamplers(false);
-  CreateFixedDescriptors();
 
 
   // ------------------------------------------------------------------------------------
   //  for now we hardcode these because i just dont know how
   //  handle these for now
   // ------------------------------------------------------------------------------------
+  tCreateDescriptorPools(DescriptorPoolTexture, 3, globalPool.data());
+  tCreateLightBuffers();
+  CreateFixedSamplers(false);
+  CreateFixedDescriptors();
 
   skyboxDescriptorLayout  = &descriptorSetLayoutLut.construct();
   geoPassDescriptorLayout = &descriptorSetLayoutLut.construct();
   frustumDescriptorLayout = &descriptorSetLayoutLut.construct();
+  lightDescriptorLayout = &descriptorSetLayoutLut.construct();
 
   *geoPassDescriptorLayout = DescriptorSetLayoutBuilder()
             .AddBinding(0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+            .AddBinding(1, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+            .AddBinding(2, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+            .Build(device, nullptr);
+
+  *geoPassDescriptorLayout = DescriptorSetLayoutBuilder()
+            .AddBinding(0, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)
+            .AddBinding(1, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)
             .Build(device, nullptr);
 
   *skyboxDescriptorLayout = DescriptorSetLayoutBuilder()
@@ -288,6 +297,7 @@ int VK::CreateGraphicsState(Device& applicationDevice){
 
   vkcall(AllocateVkDescriptorSets(device, globalPool.at(0).pool, skyboxDescriptorLayout, 1, &skyboxDescriptorSet))
   vkcall(AllocateVkDescriptorSets(device, globalPool.at(0).pool, frustumDescriptorLayout, 1, &frustumDescriptorSet))
+  vkcall(AllocateVkDescriptorSets(device, globalPool.at(0).pool, lightDescriptorLayout, 1, &lightDescriptorSet))
 
   const char* kGeometryPipelineMetaPath = "/Users/brinq/.dev/projects/solar-sim/juye/data/shaders/builtin_geometrypass.meta.yaml";
   const char* kSkyboxPipelineMetaPath = "/Users/brinq/.dev/projects/solar-sim/juye/data/shaders/builtin_skybox.meta.yaml";
@@ -295,10 +305,10 @@ int VK::CreateGraphicsState(Device& applicationDevice){
   ShaderContainer geometryPassShader =  BuildShaderFromMetaFile(device, nullptr, kGeometryPipelineMetaPath);
   ShaderContainer skyBoxShader =  BuildShaderFromMetaFile(device, nullptr, kSkyboxPipelineMetaPath);
 
-  VkDescriptorSetLayout geom[2] = {*geoPassDescriptorLayout, *frustumDescriptorLayout};
+  VkDescriptorSetLayout geom[3] = {*geoPassDescriptorLayout, *frustumDescriptorLayout, *lightDescriptorLayout};
   VkDescriptorSetLayout skyy[2] = {*skyboxDescriptorLayout, *frustumDescriptorLayout};
 
-  vkcall(ivk::CreatePipelineLayoutFromContainer(device, geometryPassShader, bk::span(geom, 2), &geoPassPipelineLayout))
+  vkcall(ivk::CreatePipelineLayoutFromContainer(device, geometryPassShader, bk::span(geom, 3), &geoPassPipelineLayout))
   vkcall(ivk::CreatePipelineLayoutFromContainer(device, skyBoxShader, bk::span(skyy, 2), &skyboxPipelineLayout))
 
   vkcall(ivk::CreateGraphicPipeline(device, geometryPassShader, geoPassPipelineLayout, mainRenderpass, &mainPipeline))
@@ -328,6 +338,22 @@ int VK::CreateGraphicsState(Device& applicationDevice){
   frustumWrite.dstBinding = 0;
   frustumWrite.pBufferInfo = &DescriptorBufferInfo;
   vkUpdateDescriptorSets(device, 1,&frustumWrite, 0,nullptr);
+
+  VkWriteDescriptorSet lightWrite{};
+  lightWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+  lightWrite.descriptorCount = 1;
+  lightWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  lightWrite.dstArrayElement = 0;
+  lightWrite.dstSet = lightDescriptorSet;
+  lightWrite.dstBinding = 0;
+  DescriptorBufferInfo.buffer = ambientLightGpuBuffer;
+  DescriptorBufferInfo.range = kMaxLights * sizeof(LightEntry);
+  lightWrite.pBufferInfo = &DescriptorBufferInfo;
+  vkUpdateDescriptorSets(device, 1,&lightWrite, 0,nullptr);
+  DescriptorBufferInfo.buffer = directionalLightGpuBuffer;
+  lightWrite.dstBinding = 1;
+  vkUpdateDescriptorSets(device, 1,&lightWrite, 0,nullptr);
+
 
   // ------------------------------------------------------------------------------------
   // ------------------------------------------------------------------------------------
@@ -402,7 +428,6 @@ int VK::CreateGraphicsState(Device& applicationDevice){
   for(VkFence& s : fences){
     vkcall(ivk::wrappers::CreateFence(device, VK_FENCE_CREATE_SIGNALED_BIT, nullptr, &s))
   }
-
 
   glm::mat4 x = glm::mat4(1);
   memcpy(DefaultGPassStub.transform, &x, sizeof(glm::mat4));
@@ -860,7 +885,6 @@ void VK::TestTriangle(){
   void VK::tCreateDescriptorPools(DescriptorPoolType type, uint32_t count, DescriptorPool* pMemory){
     const int kMaxSets = 20;
     VkDescriptorPoolCreateInfo cDescriptorPool{};
-
     cDescriptorPool.pNext = nullptr;
     cDescriptorPool.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     cDescriptorPool.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
@@ -868,19 +892,22 @@ void VK::TestTriangle(){
 
     switch (type){
       case DescriptorPoolTexture:
-        const int kMaxTextureDescriptorCount = 20;
+        const int kMaxTextureDescriptorCount = 40;
         VkDescriptorPoolSize cs{};
         cs.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         cs.descriptorCount = kMaxTextureDescriptorCount;
-
 
         VkDescriptorPoolSize ub{};
         ub.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         ub.descriptorCount = kMaxTextureDescriptorCount;
 
-        VkDescriptorPoolSize x[2] = {cs, ub};
+        VkDescriptorPoolSize sb{};
+        sb.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        sb.descriptorCount = kMaxTextureDescriptorCount;
+
+        VkDescriptorPoolSize x[3] = {cs, ub, sb};
         cDescriptorPool.pPoolSizes = x;
-        cDescriptorPool.poolSizeCount = 2;
+        cDescriptorPool.poolSizeCount = 3;
         break;
     }
 
@@ -1009,17 +1036,12 @@ vkcall(ivk::wrappers::EndCommandBuffer(mainCommandBuffer))
     ret = &lightBundle.directional.back();
     break;
   }
-
+  
   return nullptr;
 }
 
-void WriteLightSource(ResourceHandle h){
-
-}
-
-void DestroyLightSources(ResourceHandle* h, int count){
-
-}
+void WriteLightSource(ResourceHandle h){}
+void DestroyLightSources(ResourceHandle* h, int count){}
 
 
 void VK::Destroy(){
