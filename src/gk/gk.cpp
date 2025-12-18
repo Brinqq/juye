@@ -35,8 +35,15 @@ struct Mesh{
   glm::mat4 push[3];
 };
 
+struct Light{
+  Color3 col;
+  Vector3f pos;
+};
+
 Mesh simpleCube;
 Mesh plane;
+Light ambient;
+Light pos;
 
 Camera cam{};
 bool updateCam = false;
@@ -180,6 +187,7 @@ int GK::Init(VK& vulkan){
   GeometryData dat;
   GeometryData geometryPlane;
 
+
   dat.pVertex = (void*)cube.pVertices;
   dat.pIndices = (void*)cube.pIndices;
   dat.indicesBytes = cube.indices * sizeof(uint16_t);
@@ -206,6 +214,8 @@ int GK::Init(VK& vulkan){
 
   juye::UnloadImage(image);
   juye::UnloadImage(pimage);
+
+   ResourceHandle abl = driver->CreateLightSource();
 
   CubeMapWriteDescription x = CubeMapDataGenerate();
   skybox =  driver->CreateCubeMap(skyboxData[0].width);
