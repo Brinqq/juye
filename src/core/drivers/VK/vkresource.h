@@ -3,6 +3,12 @@
 
 namespace juye::driver{
 
+enum ResourceType{
+  ResourceStorage,
+  ResourceUniform
+};
+
+
 class DescriptorSetLayoutBuilder{
 private:
   static constexpr int kMaxBindings = 5;
@@ -15,8 +21,10 @@ public:
 };// DescriptorSetLayoutBuilder
   
 
-  VkResult AllocateVkDescriptorSets(VkDevice device, const VkDescriptorPool& pool, const VkDescriptorSetLayout* pLayouts, 
-           uint32_t count, VkDescriptorSet* pSets);
+VkResult AllocateVkDescriptorSets(VkDevice device, const VkDescriptorPool& pool, const VkDescriptorSetLayout* pLayouts, 
+         uint32_t count, VkDescriptorSet* pSets);
+
+
   
 }// namespace juye::driver
 

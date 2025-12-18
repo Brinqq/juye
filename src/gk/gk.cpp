@@ -215,8 +215,6 @@ int GK::Init(VK& vulkan){
   juye::UnloadImage(image);
   juye::UnloadImage(pimage);
 
-   ResourceHandle abl = driver->CreateLightSource();
-
   CubeMapWriteDescription x = CubeMapDataGenerate();
   skybox =  driver->CreateCubeMap(skyboxData[0].width);
   driver->WriteCubeMap(skybox ,x);
