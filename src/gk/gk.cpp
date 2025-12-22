@@ -1,6 +1,7 @@
 #include "gk.h"
 #include "juye/gk/prefabs.h"
 #include "core/global.h"
+#include "assets/loader.h"
 
 #include "core/drivers/device.h"
 #include "core/fsystem/file.h"
@@ -13,7 +14,6 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/glm.hpp>
-
 
 // void CreateGraphicSystem(Device& device, VK& vulkan){
 //   device.CreateGraphicWindow(1920, 1080, "sim");
@@ -29,7 +29,7 @@ struct Camera{
   glm::mat4 projection;
 };
 
-struct Mesh{
+struct Meshk{
   VK::GeoHandle handle;
   glm::mat4 transform;
   glm::mat4 push[3];
@@ -40,8 +40,8 @@ struct Light{
   Vector3f pos;
 };
 
-Mesh simpleCube;
-Mesh plane;
+Meshk simpleCube;
+Meshk plane;
 Light ambient;
 Light pos;
 
@@ -145,11 +145,15 @@ void CubeMapDataCleanup(){
   }
 }
 
+const char* kCarFile = "/Users/brinq/.dev/projects/solar-sim/juye/data/models/builtin/car.glb";
+
 int GK::Init(VK& vulkan){
   driver = &vulkan;
   device.CreateGraphicWindow(1920, 1080, "sim");
   driver->CreateGraphicsState(device);
   DevInitInput();
+
+  LoadGLTF(kCarFile);
 
   cam.view = glm::lookAt(glm::vec3(0.0f, -4.0f, -4.0f), glm::vec3(0.0f, 1.0f, 4.0f), glm::vec3(0.0f, 1.0f, 0.0f));
   cam.projection = glm::perspectiveFov(glm::radians(60.0f), static_cast<float>(device.windowW), static_cast<float>(device.windowH), 0.1f, 1000.0f);
@@ -188,11 +192,18 @@ int GK::Init(VK& vulkan){
   GeometryData geometryPlane;
 
 
-  dat.pVertex = (void*)cube.pVertices;
-  dat.pIndices = (void*)cube.pIndices;
-  dat.indicesBytes = cube.indices * sizeof(uint16_t);
-  dat.vertexBytes = cube.vertices * cube.stride;
-  dat.numIndices = cube.indices;
+  // dat.pVertex = (void*)cube.pVertices;
+  // dat.pIndices = (void*)cube.pIndices;
+  // dat.indicesBytes = cube.indices * sizeof(uint16_t);
+  // dat.vertexBytes = cube.vertices * cube.stride;
+  // dat.numIndices = cube.indices;
+  
+  // dat.pVertex = (void*)k->mVertices;
+  // dat.pIndices = (void*)k->mFaces;
+  // dat.indicesBytes = cube.indices * sizeof(uint16_t);
+  // dat.vertexBytes = k->mFaces * (sizeof(float) * 8);
+  // dat.numIndices = k->mNumFaces;
+
   dat.texture = image.data;
   dat.textureWidth = image.width;
   dat.textureHeight = image.height;
