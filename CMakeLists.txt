@@ -17,8 +17,9 @@ set(compile_samples TRUE)
 set(files
   # systems
   "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/gk.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/prefabs.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/actions.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/model/prefabs.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/assets/loader.cpp"
 
   # core
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/juye.cpp"
@@ -47,7 +48,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(includes)
 set(libs)
 set(lib_directories
-  ${CMAKE_BINARY_DIR}/lib
+${CMAKE_BINARY_DIR}/lib
 )
 
 set(include_directories
@@ -57,6 +58,8 @@ set(include_directories
   ${root}/external/bcl/src/include
   ${root}/external/glm
   ${root}/external/yaml-cpp/include
+  ${root}/external/assimp/include
+  ${CMAKE_BINARY_DIR}/juye/external/assimp/include
 )
 
 
@@ -64,6 +67,7 @@ set(include_directories
 set(CMAKE_BUILD_TYPE "Release")
 add_subdirectory(${root}/external/bcl/src)
 add_subdirectory(${root}/external/yaml-cpp)
+add_subdirectory(${root}/external/assimp)
 
 #vulkan 
 # TODO: unhardcode please.
@@ -91,6 +95,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
   /Users/brinq/.dev/librarys/VulkanSDK/1.4.328.1/macOS/lib/libvulkan.1.dylib
   ${CMAKE_BINARY_DIR}/lib/libglfw3.a
   yaml-cpp
+  assimp
   ${macos_frameworks}
 )
 
