@@ -220,54 +220,58 @@ int VK::CreateGraphicsState(Device& applicationDevice){
   vkcall(vkBindImageMemory(device, depthBuffer.image, depthBuffer.memory, 0))
   depthBuffer.view = vkh::CreateImageView(device, depthBuffer.image, VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_D32_SFLOAT, VK_IMAGE_ASPECT_DEPTH_BIT);
 
-  AttachmentDescription f{
-    VK_FORMAT_B8G8R8A8_UNORM,
-    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-    VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-    {RenderAttachmentUsageWrite},
-  };
-
-  // CreateRenderPass(bk::span(&f, 1), 1, RenderPassDepthBit, &mainRenderpass);
-
   // ------------------------------------------------------------------------------------
   //  for now we hardcode these because i just dont know how
   //  handle these for now
   // ------------------------------------------------------------------------------------
 
+  // Renderpasses:
+  // geometry renderpass
   mainRenderpass = RenderPassBuilder()
         .AddAttachment(VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, 
          RenderPassBuilder::AttachmentCreateClearOnLoad | RenderPassBuilder::AttachmentCreateKeepOnStore)
         .AddDepthAttachment(VK_FORMAT_D32_SFLOAT)
         .BeginSubpass()
-          .SetPreserveAttachment(0)
-        .EndSubpass()
           .SetWriteAttachment(0)
+        .EndSubpass()
         .BeginSubpass()
+          .SetPreserveAttachment(0)
         .EndSubpass()
         .Build(device);
 
+  //Attachment Resource Allocation:
+  
+  //shadow texture
+  vkcall(ivk::wrappers::CreateImage(device, VK_FORMAT_R32_SFLOAT, {swapchainExtent.width, swapchainExtent.height, 1},
+                  VK_IMAGE_TYPE_2D, 1, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_LAYOUT_UNDEFINED, 
+                  VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_TILING_OPTIMAL, 1, 0, &shadowmapImage))
+  VkMemoryRequirements shadowreq;
+  vkGetImageMemoryRequirements(device, shadowmapImage, &shadowreq);
+  MemoryVK::Allocate(device, &shadowmapMemory, shadowreq.size ,_macosDeviceLocalFlag);
+  vkcall(vkBindImageMemory(device, shadowmapImage, shadowmapMemory, 0))
+  shadowmapView = vkh::CreateImageView(device, shadowmapImage, VK_IMAGE_VIEW_TYPE_2D,VK_FORMAT_R32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
+  
   VkImageView frontrp[2]{swapchainViews[0], depthBuffer.view};
   VkImageView backrp[2]{swapchainViews[1], depthBuffer.view};
 
   vkcall(CreateVkFramebuffer(device, mainRenderpass, swapchainExtent, frontrp, 2, 
   nullptr, &framebuffers[0]))
-
-
   vkcall(CreateVkFramebuffer(device, mainRenderpass, swapchainExtent, backrp, 2, 
   nullptr, &framebuffers[1]))
+  
 
   globalPool.resize(3);
   tCreateDescriptorPools(DescriptorPoolTexture, 3, globalPool.data());
-
   tCreateLightBuffers();
   CreateFixedSamplers(false);
   CreateFixedDescriptors();
-
+  
   skyboxDescriptorLayout  = &descriptorSetLayoutLut.construct();
   geoPassDescriptorLayout = &descriptorSetLayoutLut.construct();
   frustumDescriptorLayout = &descriptorSetLayoutLut.construct();
   lightDescriptorLayout = &descriptorSetLayoutLut.construct();
-
+  shadowmapDescriptorLayout = &descriptorSetLayoutLut.construct();
+  
   *geoPassDescriptorLayout = DescriptorSetLayoutBuilder()
             .AddBinding(0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
             .AddBinding(1, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
@@ -286,6 +290,12 @@ int VK::CreateGraphicsState(Device& applicationDevice){
   *frustumDescriptorLayout = DescriptorSetLayoutBuilder()
             .AddBinding(0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
             .Build(device, nullptr);
+
+  // *shadowmapDescriptorLayout = DescriptorSetLayoutBuilder()
+  //                             .AddBinding(){
+  //                               
+  //                             })
+  //                             .Build(device, nullptr);
     
 
   vkcall(AllocateVkDescriptorSets(device, globalPool.at(0).pool, skyboxDescriptorLayout, 1, &skyboxDescriptorSet))
@@ -537,7 +547,6 @@ void VK::Draw(){
   rpass.framebuffer = framebuffers[curBackBuffer];
   vkCmdBeginRenderPass(mainCommandBuffer, &rpass, VK_SUBPASS_CONTENTS_INLINE);
   
-  vkCmdNextSubpass(mainCommandBuffer, VK_SUBPASS_CONTENTS_INLINE);
 
   vkCmdBindPipeline(mainCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mainPipeline);
 
@@ -580,6 +589,7 @@ void VK::Draw(){
     skyboxPipelineLayout, 0, 2, skyboxDescBundle, 0, nullptr);
 
   vkCmdDraw(mainCommandBuffer, 3, 1 ,0 ,0);
+  vkCmdNextSubpass(mainCommandBuffer, VK_SUBPASS_CONTENTS_INLINE);
 
   vkCmdEndRenderPass(mainCommandBuffer);
   vkEndCommandBuffer(mainCommandBuffer);

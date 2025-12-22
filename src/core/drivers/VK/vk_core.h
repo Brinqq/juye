@@ -350,10 +350,14 @@ struct GpuCubeMap{
   VkDescriptorSetLayout* lightDescriptorLayout;;
   VkDescriptorSet lightDescriptorSet;
 
+  //shadow map
+  VkImage shadowmapImage;
+  VkImageView shadowmapView;
+  VkDeviceMemory shadowmapMemory;
+  VkDescriptorSetLayout* shadowmapDescriptorLayout;
+
   bk::bucket<ResourceHandle, 10> resourceLUT;
   bk::bucket<ImageResource, 10> imageLUT;
-
-  
   
   //------------------------------------------------------------------------------------------------------------------------------
   //------------------------------------------------------------------------------------------------------------------------------
