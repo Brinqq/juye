@@ -20,8 +20,8 @@ void main(){
 
     mat4 invProj = inverse(projection);
     mat4 invView = inverse(mat4(mat3(view)));
-    vec4 unprojected = invProj * vec4(pos, 0.0, 1.0);
+    vec4 unprojected = invProj * vec4(pos, -0.0, 1.0);
     texcoord = unprojected.xyz / unprojected.w;
-    texcoord *= -1;
+    texcoord *= 0.2f;
 
 }
