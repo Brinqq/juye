@@ -14,12 +14,19 @@ set(atexture_directory ${root}/data/textures/)
 
 set(compile_samples TRUE)
 
+set(force_includes 
+  "-includecore/pch/assertions.h"
+  "-includecore/pch/error.h"
+  "-includecore/global.h"
+)
+
 set(files
   # systems
   "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/gk.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/actions.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/model/prefabs.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/assets/loader.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/assets/registry.cpp"
 
   # core
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/juye.cpp"
@@ -90,6 +97,13 @@ set(CMAKE_CXX_FLAGS
 
 add_library(${PROJECT_NAME} ${files})
 target_include_directories(${PROJECT_NAME} PRIVATE ${include_directories})
+
+if(APPLE OR LINUX)
+  target_compile_options(${PROJECT_NAME} PRIVATE ${force_includes})
+endif()
+if(WIN32)
+  target_compile_options(${PROJECT_NAME} PRIVATE /FI${force_includes}) #prob not correct
+endif()
 
 target_link_libraries(${PROJECT_NAME} PUBLIC 
   /Users/brinq/.dev/librarys/VulkanSDK/1.4.328.1/macOS/lib/libvulkan.1.dylib
