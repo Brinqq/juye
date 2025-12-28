@@ -75,6 +75,7 @@ set(CMAKE_BUILD_TYPE "Release")
 add_subdirectory(${root}/external/bcl/src)
 add_subdirectory(${root}/external/yaml-cpp)
 add_subdirectory(${root}/external/assimp)
+add_subdirectory(${root}/external)
 
 #vulkan 
 # TODO: unhardcode please.
