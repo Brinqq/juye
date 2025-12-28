@@ -32,10 +32,17 @@ list(APPEND juye_extern_libs glm.${juye_extern_static_ext})
 #bk
 add_subdirectory(bcl/src)
 list(APPEND juye_extern_include_dirs bcl/src/include)
-list(APPEND juye_extern_libs bk)
+list(APPEND juye_extern_libs bk.${juye_extern_static_ext})
+
+#stb
+list(APPEND juye_extern_include_dirs stb/) #its in the root wtf
+list(APPEND juye_extern_include_dirs ${CMAKE_SOURCE_DIR})
+
 
 #assimp
-# add_subdirectory(assimp)
+add_subdirectory(assimp)
+list(APPEND juye_extern_include_dirs assimp/include) 
+list(APPEND juye_extern_libs assimp.${juye_extern_static_ext})
 
 #user dependant externs
 #vulkan
@@ -58,8 +65,6 @@ if(APPLE OR UNIX)
   list(APPEND ${juye_extern_libs} "-framework Metal" "-framework IOKit" "-framework Cocoa" "-framework QuartzCore")
 endif()
 
-  # assimp/include
-  # ${CMAKE_BINARY_DIR}/juye/external/assimp/include
 
   target_link_directories(${PROJECT_NAME} PRIVATE ${juye_extern_library_dirs})
   target_include_directories(${PROJECT_NAME} PRIVATE ${juye_extern_include_dirs})
