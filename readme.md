@@ -15,6 +15,7 @@ Start by cloning the repository:
 ```
 $ git clone https://github.com/Brinqq/juye.git
 $ cd juye
+$ git submodule update --init
 ```
 
 ## **Windows**
