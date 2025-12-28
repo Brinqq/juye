@@ -3,7 +3,7 @@
 ## **Prerequisites**
  Building this project requires you have:
 - Python 3.12 *(or greater)*
-- CMake 4.25.1 *(or greater)*
+- CMake 3.25.1 *(or greater)*
 - Build Generation Tool *(Windows)*
 - VulkanSDK
 
