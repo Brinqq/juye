@@ -1,4 +1,6 @@
 .env/*
 build/*
+external/*
+!external/bcl
 build_generation.h
 .ds_store
