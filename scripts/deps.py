@@ -15,7 +15,8 @@ glfw_folder = external_folder / "glfw"
 
 def git_clone(repo: str, path: Path):
     if not path.exists():
-        subprocess.run(["git", "clone", repo, path])
+        subprocess.run(
+            ["git", "clone", "-q", repo, path])
 
 git_clone("https://github.com/g-truc/glm.git", glm_folder)
 git_clone("https://github.com/jbeder/yaml-cpp.git", yamlcpp_folder)
