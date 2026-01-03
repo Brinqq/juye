@@ -36,10 +36,6 @@ enum VkhImageFlags{
   Multisampling = 0x0,
 };
 
-//util functions
-void GenerateQueueFamilies(VkPhysicalDevice device, QueueFamily* const pDat, size_t& bytes);
-VkPhysicalDevice GetGpu(VkInstance& instance);
-
 
 VkFormat GetCompatibleSurfaceFormat(VkPhysicalDevice gpu, VkSurfaceKHR surface);
 VkColorSpaceKHR GetCompatibleSurfaceColorSpace(VkPhysicalDevice gpu, VkSurfaceKHR surface);
@@ -48,7 +44,6 @@ VkExtent2D GetCompatibleSurfaceExtent();
 //create info helpers.
 //
 
-VkDeviceQueueCreateInfo CreateDeviceQueueCI(uint32_t index, uint32_t count, float p);
 
 
 //vulkan objects creation helpers.
@@ -69,5 +64,11 @@ void DestroyImageView(VkDevice device, VkImageView view);
 VkResult CreateBuffer(VkDevice device, VkBuffer* buf, size_t bytes, const VkBufferUsageFlags usage);
 void DestroyBuffer(VkDevice device, VkBuffer buffer);
 
-
 }//namespace vkh;
+
+namespace juye{
+  VkDeviceQueueCreateInfo vlkQueueInfo(uint32_t index, uint32_t count, float p);
+  void vlkGetGpu(VkInstance instance, uint32_t* pMaxGPUs, VlkGPUDescription* pGPUs);
+  bool vlkCheckInstanceLayers(const bk::span<const char*>& span);
+  bool vlkCheckInstanceExtensions(const char* pLayer, const bk::span<const char*>& span);
+}
