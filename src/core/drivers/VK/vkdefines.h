@@ -3,6 +3,11 @@
 #include "vulkan/vulkan.h"
 #include "vk_debug.h"
 
+#include "bcl/containers/span.h"
+#include "bcl/containers/vector.h"
+#include "bcl/containers/bitset.h"
+#include "bcl/containers/string.h"
+
 enum QueueBitTypes{
   QueueBitNone = 0x0,
   QueueBitGraphic = 0x2,
@@ -20,13 +25,12 @@ enum ShaderStageType{
   ShaderStageCompute,
 };
 
-struct QueueFamily{
-  uint8_t index;
-  uint8_t maxQueues;
-  QueueBitTypes bits;
-};
-
 namespace juye::driver{
+
+  enum VulkanInstanceLayerType{
+    VulkanInstanceLayerValidation = 0x0
+  };
+
 
   enum BuiltinUniformType{
     BuiltinUniformCamera,
@@ -37,6 +41,23 @@ namespace juye::driver{
     float view[4]; //should this be in here? probably not, who knows.
     float projection[4];
   };
+
+}
+
+namespace juye{
+
+enum VlkGPUBitFlags{
+  GpuDiscreteBit
+};
+
+struct VlkGPUDescription{
+  VkPhysicalDevice handle;
+  bk::in_string<20> name;
+  VkFormat presentFormat;
+  VkFormat colorspace;
+  bk::bitset flags;
+};
+
 
 }
 
