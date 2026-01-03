@@ -18,8 +18,12 @@ namespace juye{
 
       glfwTerminate();
     #endif
+
+    #if _WIN32
+      ext->push_back("VK_KHR_win32_surface");
+    #endif
   }
 
-  VkSurfaceKHR vlkCreatePlatformSurface(void* handle);
+  VkSurfaceKHR vlkCreatePlatformSurface(VkInstance instance, void* handle);
 
 }

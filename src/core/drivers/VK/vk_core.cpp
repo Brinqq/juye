@@ -581,7 +581,7 @@ int VK::Init(void* pDisplayHandle){
   //create features set
 
   //create surface
-  vlkCreatePlatformSurface(pDisplayHandle);
+  vlkCreatePlatformSurface(instance, pDisplayHandle);
 
   //logical device
   bcl::small_vector<const char*> deviceExt;
