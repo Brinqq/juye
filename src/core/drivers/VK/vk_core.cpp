@@ -3,6 +3,7 @@
 #include "vk_helper.h"
 #include "vkdefines.h"
 #include "vkinternal.h"
+#include "vkplatform.h"
 #include "vk_wrappers.h"
 #include "MemoryVK/MemoryVK.h"
 #include "vkshader.h"
@@ -25,9 +26,97 @@
 #include <bcl/containers/bucket.h>
 
 
-//opaque structure implementations
-
 using namespace juye::driver;
+using namespace juye;
+
+// For now it allocates in a first fit manor, Think about a more dynamic selection process.
+class vlkQueueAllocator{
+private:
+  struct FamilyEntry{
+    uint8_t maxQueues;
+    uint8_t remainingQueues;
+    uint8_t offset;
+    VkQueueFlags bits;
+  };
+
+  bcl::small_vector<FamilyEntry, 10> mNodes;//never seen a gpu above 5. 
+  
+public:
+ vlkQueueAllocator() = delete;
+
+ vlkQueueAllocator(VkPhysicalDevice device){
+  uint32_t count;
+  vkGetPhysicalDeviceQueueFamilyProperties(device, &count, nullptr);
+  VkQueueFamilyProperties* pProperties = static_cast<VkQueueFamilyProperties*>(alloca(count * sizeof(VkQueueFamilyProperties)));
+  vkGetPhysicalDeviceQueueFamilyProperties(device, &count, pProperties);
+  bk::span<VkQueueFamilyProperties> span(pProperties, count);
+
+  mNodes.resize(count);
+  int i = 0;
+  for (const VkQueueFamilyProperties& f : span){
+    FamilyEntry e{};
+    mNodes[i] = e;
+    e.remainingQueues = f.queueCount;
+    e.maxQueues = f.queueCount;
+    e.offset = 0;
+    e.bits = f.queueFlags;
+    i++;
+  }
+
+ }
+
+ ~vlkQueueAllocator(){}
+
+bool Allocate(VkQueueFlags type, uint32_t* family, uint32_t* index){
+  int i = 0;
+  for(FamilyEntry& node : mNodes){
+    if((node.bits & type) && (node.remainingQueues != 0)){
+      *family = i;
+      *index = node.offset;
+      node.offset++;
+      node.remainingQueues--;
+      return true;
+    }
+    i++;
+  }
+
+  return false;
+}
+
+};
+
+
+//first pass: Get Total GPUs.
+//second pass: Sets GPU info for each entry and sets pMaxGPUs to the amount of valid GPUs.
+static void vlkGetGPUs(VkInstance instance, uint32_t* pMaxGPUs, VlkGPUDescription* pGPUs){
+  uint32_t count;
+  if(pGPUs == nullptr){
+    vkEnumeratePhysicalDevices(instance, &count, nullptr);
+    *pMaxGPUs = count;
+    return;
+  }
+
+  vkEnumeratePhysicalDevices(instance, &count, nullptr);
+  VkPhysicalDevice* pDevices = (VkPhysicalDevice*)alloca(count * sizeof(VkPhysicalDevice));
+  vkEnumeratePhysicalDevices(instance, &count, pDevices);
+  bk::span<VkPhysicalDevice> span(pDevices, count);
+
+  int index = 0;
+  int av = 0;
+  for(const VkPhysicalDevice gpu : span){
+      VlkGPUDescription desc{};
+      VkPhysicalDeviceProperties properties;
+      vkGetPhysicalDeviceProperties(gpu, &properties);
+      desc.handle = gpu;
+      if(properties.deviceType & VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU){ desc.flags.set(GpuDiscreteBit);}
+      pGPUs[index] = desc;
+      index++;
+      av++;
+  }
+
+  *pMaxGPUs = av;
+}
+
 
 int VK::CreateComputeState(){
   return 0;
@@ -170,11 +259,9 @@ int VK::CreateRenderPass(const bk::span<AttachmentDescription>& attachments, uin
 }
 
 int VK::CreateGraphicsState(Device& applicationDevice){
-  
-  surface = vkh::GetPlatformSurface(instance, static_cast<GLFWwindow*>(applicationDevice.GraphicsWindow));
-
   VkSurfaceCapabilitiesKHR surfaceInfo;
   vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu, surface, &surfaceInfo);
+
   swapchainExtent = surfaceInfo.currentExtent;
 
   //swap chain
@@ -445,7 +532,7 @@ int VK::CreateGraphicsState(Device& applicationDevice){
   return 0;
 }
 
-int VK::Init(){
+int VK::Init(void* pDisplayHandle){
   VkApplicationInfo cApp{};
   cApp.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
   cApp.pNext = nullptr;
@@ -456,38 +543,47 @@ int VK::Init(){
   cApp.apiVersion = VK_API_VERSION_1_0;
 
   bcl::small_vector<const char*> instanceLayers;
+  bcl::small_vector<const char*> extentions;
 
-  instanceLayers.push_back("VK_LAYER_KHRONOS_validation");
+  constexpr bool validationLayer = true;
+
+  if(validationLayer){
+    instanceLayers.push_back("VK_LAYER_KHRONOS_validation");
+  }
+
+  vlkGetPlatformInstanceExtenstions(&extentions);
+  extentions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+  extentions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+  
+  if(!vlkCheckInstanceLayers(bk::span(instanceLayers.data(), instanceLayers.size())) &&
+  !vlkCheckInstanceExtensions(nullptr, bk::span(extentions.data(), extentions.size()))){
+    juye_runtime_error();
+  };
 
   VkInstanceCreateInfo cInstance{};
   cInstance.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   cInstance.pNext = nullptr;
   cInstance.pApplicationInfo = &cApp;
-
   cInstance.enabledLayerCount = instanceLayers.size();
   cInstance.ppEnabledLayerNames = instanceLayers.data();
-
-  bcl::small_vector<const char*> extentions;
-  vkh::GetPlatformExtensions(extentions);
-  extentions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
-  extentions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
-
-
   cInstance.enabledExtensionCount = extentions.size();
   cInstance.ppEnabledExtensionNames = extentions.data();
   cInstance.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
   vkcall(vkCreateInstance(&cInstance, nullptr, &instance))
 
   //physical device and queue families
-  gpu = vkh::GetGpu(instance);
+  vlkGetGPUs(instance, &mMaxGPUs, nullptr);
+  mGPUs = new VlkGPUDescription[mMaxGPUs];
+  vlkGetGPUs(instance, &mMaxGPUs, mGPUs);
+  if(!mMaxGPUs){juye_runtime_error();}
+  mSelectedGpu = &mGPUs[0]; //TODO: add gpu selection for now we choose the first.
+  
+  //create features set
 
-  size_t c =  0;
-  vkh::GenerateQueueFamilies(gpu, nullptr, c);
-  queueFamilies.resize(c);
-  vkh::GenerateQueueFamilies(gpu, queueFamilies.data(), c);
+  //create surface
+  vlkCreatePlatformSurface(pDisplayHandle);
 
   //logical device
-
   bcl::small_vector<const char*> deviceExt;
   deviceExt.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
   deviceExt.push_back("VK_KHR_portability_subset");
@@ -500,17 +596,22 @@ int VK::Init(){
   cDevice.ppEnabledExtensionNames = deviceExt.data();
   cDevice.pEnabledFeatures = nullptr;
 
-  //FIXME(crossplatform support) find a solution for dynamic queue creation.
-  VkDeviceQueueCreateInfo* cQueues = (VkDeviceQueueCreateInfo*)alloca(queueFamilies.size() * sizeof(VkDeviceQueueCreateInfo));
 
-  float* priorities = (float*)alloca(queueFamilies.size() * sizeof(float));
-  for(int i = 0; i < queueFamilies.size(); ++i){
-    priorities[i] = 1.0f;
-    cQueues[i] = vkh::CreateDeviceQueueCI(queueFamilies[i].index, queueFamilies[i].maxQueues, priorities[i]);
+  //TODO:Scaling Queue structure
+  //FIXME: this absolutly will not work for a varying set over drivers fix
+  vlkQueueAllocator queueAllocator = vlkQueueAllocator(mSelectedGpu->handle);
+  const int kQueueCount = 3;
+  VkDeviceQueueCreateInfo cQueues[kQueueCount]{};
+  float queuePriorities[kQueueCount]{0.99, 0.98, 0.97};
+  VkQueueFlags queueType[kQueueCount]{VK_QUEUE_GRAPHICS_BIT, VK_QUEUE_TRANSFER_BIT};
+
+  for(int i = 0; i < kQueueCount; ++i){
+    queuePriorities[i] = 1.0f;
+    cQueues[i] = vlkQueueInfo(i, 1, queuePriorities[i]);
   }
 
   cDevice.pQueueCreateInfos = cQueues;
-  cDevice.queueCreateInfoCount = queueFamilies.size();
+  cDevice.queueCreateInfoCount = kQueueCount;
   vkcall(vkCreateDevice(gpu, &cDevice, nullptr, &device))
 
   vkGetDeviceQueue(device, 0, 0, &graphicQueue);
@@ -1050,6 +1151,8 @@ void DestroyLightSources(ResourceHandle* h, int count){}
 
 
 void VK::Destroy(){
+  delete[] mGPUs;
+
   vkDestroyDevice(device, nullptr);
   vkDestroyInstance(instance, nullptr);
 }

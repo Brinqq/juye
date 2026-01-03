@@ -282,6 +282,11 @@ struct GpuCubeMap{
   public:
     typedef std::list<GBufEntry>::iterator GeoHandle;
   private:
+
+  
+  juye::VlkGPUDescription* mGPUs; 
+  uint32_t mMaxGPUs;
+  juye::VlkGPUDescription* mSelectedGpu;
   
   DepthBuffer depthBuffer;
 
@@ -313,7 +318,6 @@ struct GpuCubeMap{
   VkQueue graphicQueue;
   VkQueue transferQueue;
 
-  std::vector<QueueFamily> queueFamilies;
   std::pair<VkBuffer, VkDeviceMemory> stagingBuffers[7];
 
   //NOTE: All this is super tmp, for now we basically thow everything i dont
@@ -388,7 +392,7 @@ private:
 public:
 
 
-  int Init();
+  int Init(void* pDisplayHandle);
   void Destroy();
 
   int CreateComputeState();
