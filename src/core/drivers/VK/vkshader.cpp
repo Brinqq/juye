@@ -145,7 +145,7 @@ static int CompileMetaFile(VkDevice device, VkAllocationCallbacks* allocator, co
   YAML::Node pushNode = root["push-constants"];
   for(auto entry : pushNode){
     VkPushConstantRange range{
-      ShaderMap.find(entry["stage"].as<std::string>())->second,
+      static_cast<VkShaderStageFlags>(ShaderMap.find(entry["stage"].as<std::string>())->second),
       entry["offset"].as<uint32_t>(),
       entry["size"].as<uint32_t>(),
     };
