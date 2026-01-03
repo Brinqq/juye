@@ -9,16 +9,20 @@
 
 static constexpr COLORREF kBorderColor = 0x00ffffff;
 LPCSTR kWndClassName = "JuyeDisplayWC";
-LPCSTR kApplicationName = "PlaceHolder";
-
+LPCSTR kApplicationName = "juye";
 
 LRESULT CALLBACK DefaultWindowProcCallback(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam){
     switch (uMsg)
-      // {
-      //
-      // case WM_KEYDOWN: {
-      //   break;
-      // }
+      {
+
+      case WM_KEYDOWN: {
+        break;
+      }
+
+      case WM_KEYUP:{
+        break;
+      }
+
       //
       // case WM_CREATE:{
       //   CREATESTRUCT* info = reinterpret_cast<CREATESTRUCT*>(lParam);
@@ -44,12 +48,17 @@ LRESULT CALLBACK DefaultWindowProcCallback(HWND hwnd, UINT uMsg, WPARAM wParam, 
         break;
       }
 
-    // }
+     }
 
     return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
-int DisplayWin32::Init(){
+
+bool juye::DisplayWin32::IsRunning(){
+  return mIsRunning;
+}
+
+int juye::DisplayWin32::Init(){
   HINSTANCE ih = GetModuleHandleA(NULL);
 
   WNDCLASS wc = {};
@@ -83,13 +92,21 @@ int DisplayWin32::Init(){
 }
 
 
-void DisplayWin32::Update(){
+void juye::DisplayWin32::Update(){
 
 }
 
-void DisplayWin32::Destroy(){
+void* juye::DisplayWin32::Handle(){
+  return &mHandle;
+}
+
+void juye::DisplayWin32::Destroy(){
   mIsRunning = false;
   DestroyWindow(mHandle);
+}
+
+juye::DisplayInputEntry* juye::DisplayWin32::MapInputStream(){
+  return nullptr;
 }
 
 
