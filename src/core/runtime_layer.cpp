@@ -17,8 +17,8 @@ juye::DisplayDriver* pDisplay = new DisplayWin32();
   // while(!kRuntimeExit && pDisplay->IsRunning()){
   //   // pDisplay->Update();
   // };
-  //
-  // pDisplay->Destroy();
+  
+  pDisplay->Destroy();
   
   return 0;
 }
