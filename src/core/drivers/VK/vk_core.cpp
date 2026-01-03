@@ -258,10 +258,10 @@ int VK::CreateRenderPass(const bk::span<AttachmentDescription>& attachments, uin
   return 0;
 }
 
-int VK::CreateGraphicsState(Device& applicationDevice){
+int VK::CreateGraphicsState(){
+
   VkSurfaceCapabilitiesKHR surfaceInfo;
   vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu, surface, &surfaceInfo);
-
   swapchainExtent = surfaceInfo.currentExtent;
 
   //swap chain
@@ -298,8 +298,9 @@ int VK::CreateGraphicsState(Device& applicationDevice){
                                       VkExtent3D{swapchainExtent.width, swapchainExtent.height, 1}, 
                                       VK_IMAGE_TYPE_2D, 1, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
                                       VK_IMAGE_LAYOUT_UNDEFINED, VK_SAMPLE_COUNT_1_BIT,
-                                      VK_IMAGE_TILING_OPTIMAL, 1, 0,&depthBuffer.image
-                                      ))
+                                      VK_IMAGE_TILING_OPTIMAL, 1, 0,&depthBuffer.image))
+
+  return 0;
 
   VkMemoryRequirements depthRequirements;
   vkGetImageMemoryRequirements(device, depthBuffer.image, &depthRequirements);
@@ -581,7 +582,7 @@ int VK::Init(void* pDisplayHandle){
   //create features set
 
   //create surface
-  vlkCreatePlatformSurface(instance, pDisplayHandle);
+  surface = vlkCreatePlatformSurface(instance, pDisplayHandle);
 
   //logical device
   bcl::small_vector<const char*> deviceExt;
@@ -617,7 +618,7 @@ int VK::Init(void* pDisplayHandle){
   vkGetDeviceQueue(device, 0, 0, &graphicQueue);
   vkGetDeviceQueue(device, 1, 0, &transferQueue);
 
-  //fixme end
+  CreateGraphicsState();
   return 0;
 }
  

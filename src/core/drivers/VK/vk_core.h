@@ -417,7 +417,7 @@ public:
   void AddToDrawList(GeoHandle& geometry);
   void RemoveToDrawList(GeoHandle& geometry);
 
-  int CreateGraphicsState(Device& device);
+  int CreateGraphicsState();
   int DestroyGraphicsState();
 
   void SetSkyBox(ResourceHandle cubmap);
