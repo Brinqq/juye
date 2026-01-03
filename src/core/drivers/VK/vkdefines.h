@@ -45,17 +45,24 @@ namespace juye::driver{
 }
 
 namespace juye{
+enum vlkHeapBitFlags{
+  HeapVRAMBit = 0x0,
+  HeapCPUMappedBit = 0x1,
+};
 
-enum VlkGPUBitFlags{
+enum vlkGPUBitFlags{
   GpuDiscreteBit
+};
+
+struct vlkGPUHeapLayout{
+
 };
 
 struct VlkGPUDescription{
   VkPhysicalDevice handle;
   bk::in_string<20> name;
-  VkFormat presentFormat;
-  VkFormat colorspace;
   bk::bitset flags;
+  bcl::small_vector<vlkGPUHeapLayout, 5> heaps;
 };
 
 
