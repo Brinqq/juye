@@ -7,7 +7,7 @@ endif()
 
 file(MAKE_DIRECTORY ${CMAKE_BINARY_OUTPUT_DIRECTORY}/data)
 
-option(JUYE_BUILD_DEBUG OFF)
+option(JUYE_FORCE_RELEASE OFF)
 
 set(BUILD_SHARED_LIBS OFF)
 set(root ${CMAKE_CURRENT_SOURCE_DIR})
@@ -20,24 +20,19 @@ configure_file(
 )
 
 set(force_includes 
-  "-includecore/pch/assertions.h"
-  "-includecore/pch/error.h"
-  "-includecore/global.h"
+  # "-includecore/pch/assertions.h"
+  # "-includecore/pch/error.h"
+  # "-includecore/global.h"
 )
 
 set(files
   # systems
-  # "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/gk.cpp"
-  # "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/actions.cpp"
-  # "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/model/prefabs.cpp"
-  # "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/assets/loader.cpp"
-  # "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/assets/registry.cpp"
 
   # core
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/juye.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/runtime_layer.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/display_win32.cpp"
-
+  #
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/device.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/vk_core.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/vk_helper.cpp"
@@ -49,6 +44,11 @@ set(files
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/tmp.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/vkplatform.cpp"
 
+  # "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/gk.cpp"
+  # "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/actions.cpp"
+  # "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/model/prefabs.cpp"
+  # "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/assets/loader.cpp"
+  # "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/assets/registry.cpp"
   # "${CMAKE_CURRENT_SOURCE_DIR}/src/core/fsystem/image.cpp"
 )
 
@@ -56,6 +56,7 @@ set(files
 set(juye_internal_include_dirs
   ${root}/include
   ${root}/src
+  ${root}/src/core/pch
 )
 
 set(juye_internal_libs)
@@ -69,9 +70,9 @@ target_include_directories(${PROJECT_NAME} PUBLIC ${juye_internal_include_dirs})
 target_link_libraries(${PROJECT_NAME} PUBLIC ${juye_internal_libs})
 
 if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-  target_compile_options(${PROJECT_NAME} PRIVATE ${force_includes} -g -gcodeview -O0)
+  target_compile_options(${PROJECT_NAME} PRIVATE -include/core/pch/all.h)
 else()
-  target_compile_options(${PROJECT_NAME} PRIVATE /FI${force_includes})
+  target_compile_options(${PROJECT_NAME} PRIVATE /FI "${CMAKE_CURRENT_SOURCE_DIR}/src/core/pch/fi.h")
 endif()
 
 add_subdirectory(external)

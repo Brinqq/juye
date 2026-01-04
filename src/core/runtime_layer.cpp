@@ -12,7 +12,7 @@ juye::DisplayDriver* pDisplay = new DisplayWin32();
   pDisplay->Init();
   DisplayHandle handle = pDisplay->Handle();
   VK v{};
-  // v.Init(handle);
+  v.Init(handle);
 
   // while(!kRuntimeExit && pDisplay->IsRunning()){
   //   pDisplay->Update();
