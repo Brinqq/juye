@@ -7,6 +7,7 @@
 #include "bcl/containers/vector.h"
 #include "bcl/containers/bitset.h"
 #include "bcl/containers/string.h"
+#include <vector>
 
 enum QueueBitTypes{
   QueueBitNone = 0x0,
@@ -45,26 +46,41 @@ namespace juye::driver{
 }
 
 namespace juye{
-enum vlkHeapBitFlags{
-  HeapVRAMBit = 0x0,
-  HeapCPUMappedBit = 0x1,
+
+//TODO:Add AMD 256MiB memory extenstion support
+enum class vlkHeapMemoryType{
+  HeapMemoryVRAM,
+  HeapCached,
+  HeapHostUnCached,
+  HeapHostMapped,
 };
 
 enum vlkGPUBitFlags{
   GpuDiscreteBit
 };
 
-struct vlkGPUHeapLayout{
+struct vlkHeapStructure{
+  struct Heap{
+    uint64_t bytes;
+    uint8_t index;
+  };
 
+  struct MemoryType{
+    vlkHeapMemoryType type;
+    uint32_t allocHandle;
+  };
+
+  //switch to small vec
+  bcl::small_vector<MemoryType, 8> memory;
+  bcl::small_vector<Heap, 4> heaps;
 };
 
 struct VlkGPUDescription{
   VkPhysicalDevice handle;
   bk::in_string<20> name;
   bk::bitset flags;
-  bcl::small_vector<vlkGPUHeapLayout, 5> heaps;
+  vlkHeapStructure heaps;
 };
-
 
 }
 

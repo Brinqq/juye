@@ -3,6 +3,7 @@
 #include "vk_debug.h"
 
 #include "core/debug.h"
+#include "vulkan/vulkan_core.h"
 #include  <stdlib.h>
 #include <vector>
 
@@ -337,6 +338,27 @@ void vkh::DestroyBuffer(VkDevice device, VkBuffer buffer){
 //
 // bool juye::vlkChooseColorSpace(VkPhysicalDevice gpu, const bk::span<const char*>& colorspace){
 // }
+using namespace juye;
+
+vlkHeapStructure juye::vlkGenerateHeapStructure(VkPhysicalDevice gpu){
+  VkPhysicalDeviceMemoryProperties properties;
+  vkGetPhysicalDeviceMemoryProperties(gpu, &properties);
+  vlkHeapStructure ret{};
+  ret.entries.reserve(properties.memoryTypeCount);
+  static int gpus = 0;
+  gpus++;
+
+  for(int i = 0; i < properties.memoryTypeCount; ++i){
+    vlkHeapStructure::Entry entry{};
+    VkMemoryType h = properties.memoryTypes[i];
+    
+    // int l = (h.flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) == 0;
+    ret.entries.push_back(entry);
+  }
+
+  return vlkHeapStructure{};
+
+}
 
 bool juye::vlkCheckInstanceLayers(const bk::span<const char*>& span){
   uint32_t count = 0;

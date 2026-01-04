@@ -68,6 +68,7 @@ void DestroyBuffer(VkDevice device, VkBuffer buffer);
 
 namespace juye{
   VkDeviceQueueCreateInfo vlkQueueInfo(uint32_t index, uint32_t count, float p);
+  vlkHeapStructure vlkGenerateHeapStructure(VkPhysicalDevice gpu);
   void vlkGetGpu(VkInstance instance, uint32_t* pMaxGPUs, VlkGPUDescription* pGPUs);
   bool vlkCheckInstanceLayers(const bk::span<const char*>& span);
   bool vlkCheckInstanceExtensions(const char* pLayer, const bk::span<const char*>& span);
