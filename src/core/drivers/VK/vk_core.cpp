@@ -40,7 +40,6 @@ private:
   };
 
   bcl::small_vector<FamilyEntry, 10> mNodes;//never seen a gpu above 5. 
-  
 public:
  vlkQueueAllocator() = delete;
 
@@ -104,12 +103,11 @@ static void vlkGetGPUs(VkInstance instance, uint32_t* pMaxGPUs, VlkGPUDescriptio
   int index = 0;
   int av = 0;
   for(const VkPhysicalDevice gpu : span){
-      VlkGPUDescription desc{};
       VkPhysicalDeviceProperties properties;
       vkGetPhysicalDeviceProperties(gpu, &properties);
-      desc.handle = gpu;
-      if(properties.deviceType & VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU){ desc.flags.set(GpuDiscreteBit);}
-      pGPUs[index] = desc;
+      vlkGenerateHeapStructure(gpu);
+      pGPUs[index].handle = gpu;
+      if(properties.deviceType & VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU){ pGPUs[index].flags.set(GpuDiscreteBit);}
       index++;
       av++;
   }
@@ -259,7 +257,6 @@ int VK::CreateRenderPass(const bk::span<AttachmentDescription>& attachments, uin
 }
 
 int VK::CreateGraphicsState(){
-
   VkSurfaceCapabilitiesKHR surfaceInfo;
   vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu, surface, &surfaceInfo);
   swapchainExtent = surfaceInfo.currentExtent;
@@ -582,7 +579,8 @@ int VK::Init(void* pDisplayHandle){
   //create features set
 
   //create surface
-  surface = vlkCreatePlatformSurface(instance, pDisplayHandle);
+  // surface = vlkCreatePlatformSurface(instance, pDisplayHandle);
+  return 0;
 
   //logical device
   bcl::small_vector<const char*> deviceExt;
