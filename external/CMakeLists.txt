@@ -40,9 +40,9 @@ list(APPEND juye_extern_include_dirs ${CMAKE_SOURCE_DIR})
 
 
 #assimp
-add_subdirectory(assimp)
-list(APPEND juye_extern_include_dirs assimp/include) 
-list(APPEND juye_extern_libs assimp)
+# add_subdirectory(assimp)
+# list(APPEND juye_extern_include_dirs assimp/include) 
+# list(APPEND juye_extern_libs assimpd)
 
 #user dependant externs
 #vulkan
