@@ -97,6 +97,7 @@ void juye::DisplayWin32::Update(){
 }
 
 void* juye::DisplayWin32::Handle(){
+  assert(IsWindow(mHandle));
   return &mHandle;
 }
 
