@@ -1,13 +1,19 @@
 #pragma once
 
-#include "vulkan/vulkan.h"
-#include "vk_debug.h"
-
 #include "bcl/containers/span.h"
 #include "bcl/containers/vector.h"
 #include "bcl/containers/bitset.h"
 #include "bcl/containers/string.h"
-#include <vector>
+#include "bcl/containers/cache.h"
+
+
+#if _WIN32
+#endif
+
+#include "vulkan/vulkan.h"
+#include "vk_debug.h"
+
+static constexpr int kMaxMemoryTypes = 10;
 
 enum QueueBitTypes{
   QueueBitNone = 0x0,
@@ -45,41 +51,55 @@ namespace juye::driver{
 
 }
 
+
+
 namespace juye{
 
-//TODO:Add AMD 256MiB memory extenstion support
-enum class vlkHeapMemoryType{
-  HeapMemoryVRAM,
-  HeapCached,
-  HeapHostUnCached,
-  HeapHostMapped,
+struct vlkHeapTracker{
+
 };
 
-enum vlkGPUBitFlags{
-  GpuDiscreteBit
-};
-
-struct vlkHeapStructure{
-  struct Heap{
-    uint64_t bytes;
-    uint8_t index;
-  };
-
-  struct MemoryType{
-    vlkHeapMemoryType type;
-    uint32_t allocHandle;
-  };
-
-  //switch to small vec
-  bcl::small_vector<MemoryType, 8> memory;
-  bcl::small_vector<Heap, 4> heaps;
-};
 
 struct VlkGPUDescription{
+private:
+public:
   VkPhysicalDevice handle;
   bk::in_string<20> name;
   bk::bitset flags;
-  vlkHeapStructure heaps;
+};
+
+
+struct vlkDepthBuffer{
+  VkImage image;
+  VkFormat format;
+
+};
+
+class vlkResourcePA{
+public:
+  vlkHeapTracker* mHeapTracker;
+  typedef void* CleanupHandle;
+
+  int Create(vlkHeapTracker* tracker, uint64_t bytes);
+  void Destory();
+  void Reconfigure();
+};
+
+class vlkSwapChain{
+  static constexpr int kBackBufferMax = 2;
+public:
+
+  VkSwapchainKHR mHandle;
+  VkImage mImages[kBackBufferMax];
+  uint32_t mBackBufferCount = 2;
+  uint8_t mCurrentBuf;
+  VkExtent2D mExtent;
+  VkFormat mFormat;
+  VkColorSpaceKHR mColorspace;
+
+  int Create(VkDevice device, VkPhysicalDevice gpu, VkSurfaceKHR surface, VkAllocationCallbacks* pAllocator);
+  void Destroy(VkDevice device, VkAllocationCallbacks* pAllocator);
+  void Resize(VkSurfaceKHR surface);
 };
 
 }
