@@ -185,5 +185,89 @@ VkDescriptorSetLayout DescriptorSetLayoutBuilder::Build(VkDevice device, VkAlloc
   }
 
 
+static constexpr VkFormat kSupportedPresentFormats[] = {
+  VK_FORMAT_B8G8R8A8_SRGB,
+  VK_FORMAT_R8G8B8A8_SRGB,
+  VK_FORMAT_B8G8R8A8_UNORM,
+  VK_FORMAT_R8G8B8A8_UNORM,
+};
+
+static constexpr VkColorSpaceKHR kSupportedColorSpaces[] = {
+  VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
+};
+
+namespace juye{
+
+
+int vlkSwapChain::Create(VkDevice device, VkPhysicalDevice gpu, VkSurfaceKHR surface, VkAllocationCallbacks* pAllocator){
+  VkBool32 present = 69;
+  vkGetPhysicalDeviceSurfaceSupportKHR(gpu, 0, surface, &present);
+  if(!present) return 1;
+
+  VkSurfaceCapabilitiesKHR surfaceInfo;
+  vkcall(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu, surface, &surfaceInfo))
+  mExtent = surfaceInfo.currentExtent;
+
+  uint32_t surfaceFormatCount = 0;
+  VkSurfaceFormatKHR* pSurfaceFormats;
+  vkcall(vkGetPhysicalDeviceSurfaceFormatsKHR(gpu, surface, &surfaceFormatCount, nullptr))
+  pSurfaceFormats = static_cast<VkSurfaceFormatKHR*>(alloca(sizeof(VkSurfaceFormatKHR) * surfaceFormatCount));
+  vkcall(vkGetPhysicalDeviceSurfaceFormatsKHR(gpu, surface, &surfaceFormatCount, pSurfaceFormats))
+
+  bool found = false;
+  for(int i = 0; i < std::size(kSupportedPresentFormats); ++i){
+    for(int j = 0; i < surfaceFormatCount; ++i){
+      if(kSupportedPresentFormats[i] == pSurfaceFormats[j].format){
+        for(int k = 0; k < std::size(kSupportedColorSpaces); ++k){
+          if(kSupportedColorSpaces[k] == pSurfaceFormats[j].colorSpace){
+            mFormat = kSupportedPresentFormats[i];
+            mColorspace = kSupportedColorSpaces[k];
+            found = true;
+            goto _get_me_out;
+          }
+        }
+      }
+    }
+  }
+  _get_me_out:
+
+  if(found == false){
+    juye_runtime_error();
+  }
+
+  VkSwapchainCreateInfoKHR cSwapchain{};
+  cSwapchain.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+  cSwapchain.flags = 0;
+  cSwapchain.minImageCount = mBackBufferCount;
+  cSwapchain.imageFormat = mFormat;
+  cSwapchain.imageColorSpace = mColorspace;
+  cSwapchain.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+  cSwapchain.imageArrayLayers = 1;
+  cSwapchain.imageExtent = mExtent;
+  cSwapchain.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+  cSwapchain.presentMode = VK_PRESENT_MODE_FIFO_KHR;
+  cSwapchain.clipped = VK_TRUE;
+  cSwapchain.surface = surface;
+  cSwapchain.preTransform = surfaceInfo.currentTransform;
+  cSwapchain.oldSwapchain = VK_NULL_HANDLE;
+  cSwapchain.pQueueFamilyIndices = nullptr;
+  cSwapchain.queueFamilyIndexCount = 0;
+  cSwapchain.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+  vkcall(vkCreateSwapchainKHR(device, &cSwapchain, nullptr, &mHandle))
+  return 0;
+
+  vkcall(vkGetSwapchainImagesKHR(device, mHandle, &mBackBufferCount, mImages))
+}
+
+void vlkSwapChain::Destroy(VkDevice device, VkAllocationCallbacks* pAllocator){
+  vkDestroySwapchainKHR(device, mHandle, pAllocator);
+}
+
+void vlkSwapChain::Resize(VkSurfaceKHR surface){
+
+}
+
+}//juye
+
 
 

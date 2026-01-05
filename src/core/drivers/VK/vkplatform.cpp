@@ -12,7 +12,7 @@ VkSurfaceKHR juye::vlkCreatePlatformSurface(VkInstance instance, void* handle){
   cSurface.pNext = nullptr;
   cSurface.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
   cSurface.flags = 0;
-  cSurface.hinstance = (HINSTANCE)GetWindowLongPtr(h, GWLP_HINSTANCE);;
+  cSurface.hinstance = GetModuleHandleA(NULL);
   cSurface.hwnd = h ;
   vkcall(vkCreateWin32SurfaceKHR(instance, &cSurface, nullptr, &ret))
   return ret;
