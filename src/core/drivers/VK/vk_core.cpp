@@ -1,7 +1,6 @@
 #include "vk_core.h"
 #include "vk_debug.h"
 #include "vk_helper.h"
-#include "vkdefines.h"
 #include "vkinternal.h"
 #include "vkplatform.h"
 #include "vk_wrappers.h"
@@ -24,7 +23,6 @@
 #include <bcl/containers/vector.h>
 #include <bcl/containers/span.h>
 #include <bcl/containers/bucket.h>
-
 
 using namespace juye::driver;
 using namespace juye;
@@ -105,9 +103,7 @@ static void vlkGetGPUs(VkInstance instance, uint32_t* pMaxGPUs, VlkGPUDescriptio
   for(const VkPhysicalDevice gpu : span){
       VkPhysicalDeviceProperties properties;
       vkGetPhysicalDeviceProperties(gpu, &properties);
-      vlkGenerateHeapStructure(gpu);
       pGPUs[index].handle = gpu;
-      if(properties.deviceType & VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU){ pGPUs[index].flags.set(GpuDiscreteBit);}
       index++;
       av++;
   }
@@ -257,48 +253,18 @@ int VK::CreateRenderPass(const bk::span<AttachmentDescription>& attachments, uin
 }
 
 int VK::CreateGraphicsState(){
-  VkSurfaceCapabilitiesKHR surfaceInfo;
-  vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu, surface, &surfaceInfo);
-  swapchainExtent = surfaceInfo.currentExtent;
 
-  //swap chain
-  VkSwapchainCreateInfoKHR cSwapchain; cSwapchain.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-  cSwapchain.flags = 0;
-  cSwapchain.minImageCount = 2;
-  cSwapchain.imageArrayLayers = 1;
-  cSwapchain.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-  cSwapchain.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-  cSwapchain.queueFamilyIndexCount = 0;
-  cSwapchain.pQueueFamilyIndices = nullptr;
-  cSwapchain.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-  cSwapchain.presentMode = VK_PRESENT_MODE_FIFO_KHR;
-  cSwapchain.clipped = VK_TRUE;
-  cSwapchain.oldSwapchain = VK_NULL_HANDLE;
-  cSwapchain.surface = surface;
-  cSwapchain.imageFormat = vkh::GetCompatibleSurfaceFormat(gpu, surface);
-  cSwapchain.imageColorSpace = vkh::GetCompatibleSurfaceColorSpace(gpu, surface);
-  cSwapchain.imageExtent = swapchainExtent;
-  cSwapchain.preTransform = surfaceInfo.currentTransform;
-  vkcall(vkCreateSwapchainKHR(device, &cSwapchain, nullptr, &swapchain))
+  //TODO: add check to make sure this is available.
+  mDepthBuffer.format = VK_FORMAT_D32_SFLOAT; 
 
-  uint32_t imageCount;
-  VkImage swapchainImages[2];
-  vkGetSwapchainImagesKHR(device, swapchain, &imageCount, nullptr);
-  assert(imageCount == 2);
-  vkGetSwapchainImagesKHR(device, swapchain, &imageCount, swapchainImages);
+  vkcall(ivk::wrappers::CreateImage(device, mDepthBuffer.format, 
+    VkExtent3D{mSwapchain.mExtent.width, mSwapchain.mExtent.height, 1}, VK_IMAGE_TYPE_2D,
+    1, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_SAMPLE_COUNT_1_BIT,
+    VK_IMAGE_TILING_OPTIMAL, 1, 0,&mDepthBuffer.image))
+    return 0;
 
-  for(int i = 0; i < imageCount; ++i){
-    swapchainViews[i] = vkh::CreateImageView(device, swapchainImages[i], VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);   
-  }
-
-  vkcall(ivk::wrappers::CreateImage(device, VK_FORMAT_D32_SFLOAT, 
-                                      VkExtent3D{swapchainExtent.width, swapchainExtent.height, 1}, 
-                                      VK_IMAGE_TYPE_2D, 1, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                                      VK_IMAGE_LAYOUT_UNDEFINED, VK_SAMPLE_COUNT_1_BIT,
-                                      VK_IMAGE_TILING_OPTIMAL, 1, 0,&depthBuffer.image))
-
-  return 0;
-
+  //FIXME: figure out a alllocation strat
+  
   VkMemoryRequirements depthRequirements;
   vkGetImageMemoryRequirements(device, depthBuffer.image, &depthRequirements);
   vkcall(MemoryVK::Allocate(device, &depthBuffer.memory, depthRequirements.size, _macosDeviceLocalFlag))
@@ -313,9 +279,9 @@ int VK::CreateGraphicsState(){
   // Renderpasses:
   // geometry renderpass
   mainRenderpass = RenderPassBuilder()
-        .AddAttachment(VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, 
+        .AddAttachment(mSwapchain.mFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, 
          RenderPassBuilder::AttachmentCreateClearOnLoad | RenderPassBuilder::AttachmentCreateKeepOnStore)
-        .AddDepthAttachment(VK_FORMAT_D32_SFLOAT)
+        .AddDepthAttachment(mDepthBuffer.format)
         .BeginSubpass()
           .SetWriteAttachment(0)
         .EndSubpass()
@@ -323,6 +289,8 @@ int VK::CreateGraphicsState(){
           .SetPreserveAttachment(0)
         .EndSubpass()
         .Build(device);
+
+return 0;
 
   //Attachment Resource Allocation:
   
@@ -471,14 +439,6 @@ int VK::CreateGraphicsState(){
 
   vkcall(vkAllocateCommandBuffers(device, &aCommandBuffer, &mainCommandBuffer))
 
-  // vkcall(vkh::CreateBuffer(device, &stagingBuffers[1].first, _stagingBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT))
-  // vkcall(vkh::CreateBuffer(device, &stagingBuffers[2].first, _stagingBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT))
-  // vkcall(vkh::CreateBuffer(device, &stagingBuffers[3].first, _stagingBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT))
-  // vkcall(vkh::CreateBuffer(device, &stagingBuffers[4].first, _stagingBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT))
-  // vkcall(vkh::CreateBuffer(device, &stagingBuffers[5].first, _stagingBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT))
-  // vkcall(vkh::CreateBuffer(device, &stagingBuffers[6].first, _stagingBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT))
-
-
   for(int i = 0; i < 7; ++i){
     VkMemoryRequirements req{};
     vkcall(vkh::CreateBuffer(device, &stagingBuffers[i].first, _stagingBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT))
@@ -552,6 +512,7 @@ int VK::Init(void* pDisplayHandle){
   vlkGetPlatformInstanceExtenstions(&extentions);
   extentions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
   extentions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+  extentions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
   
   if(!vlkCheckInstanceLayers(bk::span(instanceLayers.data(), instanceLayers.size())) &&
   !vlkCheckInstanceExtensions(nullptr, bk::span(extentions.data(), extentions.size()))){
@@ -576,16 +537,15 @@ int VK::Init(void* pDisplayHandle){
   if(!mMaxGPUs){juye_runtime_error();}
   mSelectedGpu = &mGPUs[0]; //TODO: add gpu selection for now we choose the first.
   
-  //create features set
-
-  //create surface
-  // surface = vlkCreatePlatformSurface(instance, pDisplayHandle);
-  return 0;
+  surface = vlkCreatePlatformSurface(instance, pDisplayHandle);
 
   //logical device
   bcl::small_vector<const char*> deviceExt;
   deviceExt.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-  deviceExt.push_back("VK_KHR_portability_subset");
+
+  #if __APPLE__
+  // deviceExt.push_back("VK_KHR_portability_subset");
+  #endif
 
   VkDeviceCreateInfo cDevice{};
   cDevice.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -599,9 +559,10 @@ int VK::Init(void* pDisplayHandle){
   //TODO:Scaling Queue structure
   //FIXME: this absolutly will not work for a varying set over drivers fix
   vlkQueueAllocator queueAllocator = vlkQueueAllocator(mSelectedGpu->handle);
-  const int kQueueCount = 3;
-  VkDeviceQueueCreateInfo cQueues[kQueueCount]{};
-  float queuePriorities[kQueueCount]{0.99, 0.98, 0.97};
+
+  const int kQueueCount = 2;
+  VkDeviceQueueCreateInfo cQueues[kQueueCount];
+  float queuePriorities[kQueueCount]{0.99, 0.98};
   VkQueueFlags queueType[kQueueCount]{VK_QUEUE_GRAPHICS_BIT, VK_QUEUE_TRANSFER_BIT};
 
   for(int i = 0; i < kQueueCount; ++i){
@@ -611,10 +572,13 @@ int VK::Init(void* pDisplayHandle){
 
   cDevice.pQueueCreateInfos = cQueues;
   cDevice.queueCreateInfoCount = kQueueCount;
-  vkcall(vkCreateDevice(gpu, &cDevice, nullptr, &device))
+
+  vkcall(vkCreateDevice(mSelectedGpu->handle, &cDevice, nullptr, &device))
 
   vkGetDeviceQueue(device, 0, 0, &graphicQueue);
   vkGetDeviceQueue(device, 1, 0, &transferQueue);
+
+  mSwapchain.Create(device, mSelectedGpu->handle, surface, nullptr);
 
   CreateGraphicsState();
   return 0;
@@ -1151,7 +1115,7 @@ void DestroyLightSources(ResourceHandle* h, int count){}
 
 void VK::Destroy(){
   delete[] mGPUs;
-
+  vkDestroySurfaceKHR(instance, surface, nullptr);
   vkDestroyDevice(device, nullptr);
   vkDestroyInstance(instance, nullptr);
 }

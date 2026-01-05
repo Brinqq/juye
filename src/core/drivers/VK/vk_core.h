@@ -1,5 +1,4 @@
 #pragma once
-
 #include "vkdefines.h"
 #include "vkentry.h"
 
@@ -7,9 +6,12 @@
 #include <array>
 #include <list>
 
+#include "MemoryVK/scoped/scoped.h"
+
 #include <bcl/containers/vector.h>
 #include <bcl/containers/span.h>
 #include <bcl/containers/bucket.h>
+#include <bcl/containers//cache.h>
 
 //tmp
 #include "glm/glm.hpp"
@@ -265,6 +267,7 @@ struct GpuCubeMap{
   GeometryPassPush DefaultGPassStub{};
 
 
+
   //dyn state
   std::unordered_map<VkFramebuffer, AttachmentResources> attachmentMemories;
 
@@ -319,6 +322,12 @@ struct GpuCubeMap{
   VkQueue transferQueue;
 
   std::pair<VkBuffer, VkDeviceMemory> stagingBuffers[7];
+
+
+  // refactor point
+  juye::vlkSwapChain mSwapchain;
+  juye::vlkDepthBuffer mDepthBuffer;
+  vak::scPool mAttachmentAllocator;
 
   //NOTE: All this is super tmp, for now we basically thow everything i dont
   // know how to structure in here and hope we figure it out when the system makes more sense.
