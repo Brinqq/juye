@@ -5,9 +5,12 @@
 #include "vkplatform.h"
 #include "vk_wrappers.h"
 #include "MemoryVK/MemoryVK.h"
-#include "vkshader.h"
+#include "shader.h"
 #include "vkresource.h"
 #include "vkentry.h"
+#include "helpers.h"
+
+#include "MemoryVK/scoped/scratch.h"
 
 #include "core/configuration//build_generation.h"
 #include "core/drivers/device.h"
@@ -26,6 +29,7 @@
 
 using namespace juye::driver;
 using namespace juye;
+using namespace vak;
 
 // For now it allocates in a first fit manor, Think about a more dynamic selection process.
 class vlkQueueAllocator{
@@ -110,7 +114,6 @@ static void vlkGetGPUs(VkInstance instance, uint32_t* pMaxGPUs, VlkGPUDescriptio
 
   *pMaxGPUs = av;
 }
-
 
 int VK::CreateComputeState(){
   return 0;
@@ -253,6 +256,10 @@ int VK::CreateRenderPass(const bk::span<AttachmentDescription>& attachments, uin
 }
 
 int VK::CreateGraphicsState(){
+  vak::Init(device, mSelectedGpu->handle);
+
+  mAttachmentAllocator.Init(HeapType::HeapLarge, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, nullptr);
+  mAttachmentHandles.reserve(10);
 
   //TODO: add check to make sure this is available.
   mDepthBuffer.format = VK_FORMAT_D32_SFLOAT; 
@@ -261,15 +268,19 @@ int VK::CreateGraphicsState(){
     VkExtent3D{mSwapchain.mExtent.width, mSwapchain.mExtent.height, 1}, VK_IMAGE_TYPE_2D,
     1, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_SAMPLE_COUNT_1_BIT,
     VK_IMAGE_TILING_OPTIMAL, 1, 0,&mDepthBuffer.image))
-    return 0;
 
-  //FIXME: figure out a alllocation strat
-  
   VkMemoryRequirements depthRequirements;
-  vkGetImageMemoryRequirements(device, depthBuffer.image, &depthRequirements);
-  vkcall(MemoryVK::Allocate(device, &depthBuffer.memory, depthRequirements.size, _macosDeviceLocalFlag))
-  vkcall(vkBindImageMemory(device, depthBuffer.image, depthBuffer.memory, 0))
-  depthBuffer.view = vkh::CreateImageView(device, depthBuffer.image, VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_D32_SFLOAT, VK_IMAGE_ASPECT_DEPTH_BIT);
+  vkGetImageMemoryRequirements(device, mDepthBuffer.image, &depthRequirements);
+
+  scScratch::Memory depthAttachmentHandle;
+  mAttachmentAllocator.Allocate(depthRequirements.size, depthRequirements.alignment, &depthAttachmentHandle);
+  mAttachmentAllocator.Bind(depthAttachmentHandle, mDepthBuffer.image);
+  mAttachmentHandles.push_back(depthAttachmentHandle);
+
+  // vkcall(vkBindImageMemory(device, depthBuffer.image, depthBuffer.memory, 0))
+  mDepthBuffer.view = &mImageViews.construct();
+  *mDepthBuffer.view = vkh::CreateImageView(device, mDepthBuffer.image, VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_D32_SFLOAT, VK_IMAGE_ASPECT_DEPTH_BIT);
+
 
   // ------------------------------------------------------------------------------------
   //  for now we hardcode these because i just dont know how
@@ -290,34 +301,27 @@ int VK::CreateGraphicsState(){
         .EndSubpass()
         .Build(device);
 
-return 0;
-
-  //Attachment Resource Allocation:
-  
   //shadow texture
-  vkcall(ivk::wrappers::CreateImage(device, VK_FORMAT_R32_SFLOAT, {swapchainExtent.width, swapchainExtent.height, 1},
-                  VK_IMAGE_TYPE_2D, 1, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_LAYOUT_UNDEFINED, 
-                  VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_TILING_OPTIMAL, 1, 0, &shadowmapImage))
-  VkMemoryRequirements shadowreq;
-  vkGetImageMemoryRequirements(device, shadowmapImage, &shadowreq);
-  MemoryVK::Allocate(device, &shadowmapMemory, shadowreq.size ,_macosDeviceLocalFlag);
-  vkcall(vkBindImageMemory(device, shadowmapImage, shadowmapMemory, 0))
-  shadowmapView = vkh::CreateImageView(device, shadowmapImage, VK_IMAGE_VIEW_TYPE_2D,VK_FORMAT_R32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
+  // vkcall(ivk::wrappers::CreateImage(device, VK_FORMAT_R32_SFLOAT, {swapchainExtent.width, swapchainExtent.height, 1},
+  //                 VK_IMAGE_TYPE_2D, 1, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_LAYOUT_UNDEFINED, 
+  //                 VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_TILING_OPTIMAL, 1, 0, &shadowmapImage))
+  // VkMemoryRequirements shadowreq;
+  // vkGetImageMemoryRequirements(device, shadowmapImage, &shadowreq);
+  // MemoryVK::Allocate(device, &shadowmapMemory, shadowreq.size ,_macosDeviceLocalFlag);
+  // vkcall(vkBindImageMemory(device, shadowmapImage, shadowmapMemory, 0))
+  // shadowmapView = vkh::CreateImageView(device, shadowmapImage, VK_IMAGE_VIEW_TYPE_2D,VK_FORMAT_R32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
   
-  VkImageView frontrp[2]{swapchainViews[0], depthBuffer.view};
-  VkImageView backrp[2]{swapchainViews[1], depthBuffer.view};
-
-  vkcall(CreateVkFramebuffer(device, mainRenderpass, swapchainExtent, frontrp, 2, 
-  nullptr, &framebuffers[0]))
-  vkcall(CreateVkFramebuffer(device, mainRenderpass, swapchainExtent, backrp, 2, 
-  nullptr, &framebuffers[1]))
-  
+  VkImageView frontrp[2]{mSwapchain.mViews[0], *mDepthBuffer.view};
+  VkImageView backrp[2]{mSwapchain.mViews[1], *mDepthBuffer.view};
+  framebuffers[0] = vlkCreateFramebuffer(device, mainRenderpass, mSwapchain.mExtent, frontrp, 2, nullptr);
+  framebuffers[1] = vlkCreateFramebuffer(device, mainRenderpass, mSwapchain.mExtent, backrp, 2, nullptr);
 
   globalPool.resize(3);
   tCreateDescriptorPools(DescriptorPoolTexture, 3, globalPool.data());
-  tCreateLightBuffers();
+  // tCreateLightBuffers();
   CreateFixedSamplers(false);
   CreateFixedDescriptors();
+
   
   skyboxDescriptorLayout  = &descriptorSetLayoutLut.construct();
   geoPassDescriptorLayout = &descriptorSetLayoutLut.construct();
@@ -351,12 +355,19 @@ return 0;
   //                             .Build(device, nullptr);
     
 
-  vkcall(AllocateVkDescriptorSets(device, globalPool.at(0).pool, skyboxDescriptorLayout, 1, &skyboxDescriptorSet))
-  vkcall(AllocateVkDescriptorSets(device, globalPool.at(0).pool, frustumDescriptorLayout, 1, &frustumDescriptorSet))
-  vkcall(AllocateVkDescriptorSets(device, globalPool.at(0).pool, lightDescriptorLayout, 1, &lightDescriptorSet))
+  skyboxDescriptorSet = vlkAllocateDescriptorSets(device, globalPool.at(0).pool, skyboxDescriptorLayout, 1);
+  frustumDescriptorSet = vlkAllocateDescriptorSets(device, globalPool.at(0).pool, frustumDescriptorLayout, 1);
+  lightDescriptorSet = vlkAllocateDescriptorSets(device, globalPool.at(0).pool, lightDescriptorLayout, 1);
 
+  //TODO: fix add system for getting builtin shaders
+  #if defined(__APPLE__)
   const char* kGeometryPipelineMetaPath = "/Users/brinq/.dev/projects/solar-sim/juye/data/shaders/builtin_geometrypass.meta.yaml";
   const char* kSkyboxPipelineMetaPath = "/Users/brinq/.dev/projects/solar-sim/juye/data/shaders/builtin_skybox.meta.yaml";
+  #endif
+  #if defined(_WIN32)
+  const char* kGeometryPipelineMetaPath = "C:/main/.dev/projects/engine/juye/data/shaders/builtin_geometrypass.meta.yaml";
+  const char* kSkyboxPipelineMetaPath = "C:/main/.dev/projects/engine/juye/data/shaders/builtin_skybox.meta.yaml";
+  #endif
 
   ShaderContainer geometryPassShader =  BuildShaderFromMetaFile(device, nullptr, kGeometryPipelineMetaPath);
   ShaderContainer skyBoxShader =  BuildShaderFromMetaFile(device, nullptr, kSkyboxPipelineMetaPath);
@@ -377,7 +388,7 @@ return 0;
   VkMemoryRequirements pvreq{};
   vkcall(CreateVkBuffer(device, &projectionViewBuffer, kProjectionMatrixSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT))
   vkGetBufferMemoryRequirements(device, projectionViewBuffer, &pvreq);
-  MemoryVK::Allocate(device, &projectionViewMemory, pvreq.size, _macosDeviceLocalFlag);
+  MemoryVK::Allocate(device, &projectionViewMemory, pvreq.size, 1);
   vkBindBufferMemory(device, projectionViewBuffer, projectionViewMemory, 0);
 
   VkDescriptorBufferInfo DescriptorBufferInfo{};
@@ -410,7 +421,7 @@ return 0;
   lightWrite.dstBinding = 1;
   vkUpdateDescriptorSets(device, 1,&lightWrite, 0,nullptr);
 
-
+  return 0;
   // ------------------------------------------------------------------------------------
   // ------------------------------------------------------------------------------------
 
@@ -448,15 +459,6 @@ return 0;
   }
 
   VkMemoryRequirements req{};
-  // vkGetBufferMemoryRequirements(device, stagingBuffers[0].first, &req);
-  //
-  // vkcall(MemoryVK::Allocate(device, &stagingBuffers[0].second, req.size, _macosHostAccessFlag))
-  // vkcall(vkBindBufferMemory(device, stagingBuffers[0].first, stagingBuffers[0].second, 0))
-  //
-  // vkGetBufferMemoryRequirements(device, stagingBuffers[1].first, &req);
-  // vkcall(MemoryVK::Allocate(device, &stagingBuffers[1].second, req.size, _macosHostAccessFlag))
-  // vkcall(vkBindBufferMemory(device, stagingBuffers[1].first, stagingBuffers[1].second, 0))
-  
   vkcall(vkAllocateCommandBuffers(device, &aCommandBuffer, &mainCommandBuffer))
 
   VkFenceCreateInfo cFence;
@@ -702,10 +704,11 @@ void VK::TestTriangle(){
 }
 
   void VK::CreateFixedSamplers(bool rebuild){
-    if(rebuild){ ivk::wrappers::DestroySamplers(device, fiSamplers.data(), fiSamplers.size(), nullptr);}
+    if(rebuild){
+      vlkDestroySamplers(device, fiSamplers.data(), fiSamplers.size(), nullptr);
+    }
 
-    vkcall(ivk::wrappers::CreateSampler(device, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-                                        true, 16, 0, 0, nullptr, &fiSamplers[Sampler::ClampTexture]))
+    fiSamplers[Sampler::ClampTexture] = vlkCreateSampler(device, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER, true, 16, 0, 0, nullptr);
   }
 
   //TODO:Figure out a better pre allocation stategy.

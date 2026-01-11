@@ -5,13 +5,14 @@
 #include <vector>
 #include <array>
 #include <list>
-
-#include "MemoryVK/scoped/scoped.h"
+#include <unordered_map>
 
 #include <bcl/containers/vector.h>
 #include <bcl/containers/span.h>
 #include <bcl/containers/bucket.h>
-#include <bcl/containers//cache.h>
+#include <bcl/containers/cache.h>
+
+#include "MemoryVK/scoped/scratch.h"
 
 //tmp
 #include "glm/glm.hpp"
@@ -327,7 +328,10 @@ struct GpuCubeMap{
   // refactor point
   juye::vlkSwapChain mSwapchain;
   juye::vlkDepthBuffer mDepthBuffer;
-  vak::scPool mAttachmentAllocator;
+  vak::scScratch mAttachmentAllocator;
+  std::vector<vak::scScratch::Memory> mAttachmentHandles;
+  bk::bucket<VkImageView, 20> mImageViews;
+  
 
   //NOTE: All this is super tmp, for now we basically thow everything i dont
   // know how to structure in here and hope we figure it out when the system makes more sense.
