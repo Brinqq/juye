@@ -156,7 +156,7 @@ int GK::Init(VK& vulkan){
   DevInitInput();
 
   // LoadGLTF(kCarFile);
-  Asset as = reg.LoadModelFromGLTF(kCarFile);
+  // Asset as = reg.LoadModelFromGLTF(kCarFile);
 
   cam.view = glm::lookAt(glm::vec3(0.0f, -4.0f, -4.0f), glm::vec3(0.0f, 1.0f, 4.0f), glm::vec3(0.0f, 1.0f, 0.0f));
   cam.projection = glm::perspectiveFov(glm::radians(60.0f), static_cast<float>(device.windowW), static_cast<float>(device.windowH), 0.1f, 1000.0f);
@@ -244,9 +244,7 @@ void GK::Tick(){
     }
 
     driver->WriteFrustum(reinterpret_cast<float*>(&cam));
-
     device.Tick();
-    
     driver->AddToDrawList(simpleCube.handle);
     driver->AddToDrawList(plane.handle);
     driver->Draw();
