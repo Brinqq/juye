@@ -35,8 +35,8 @@ list(APPEND juye_extern_include_dirs bcl/src/include)
 list(APPEND juye_extern_libs bk)
 
 #stb
-list(APPEND juye_extern_include_dirs stb/) #its in the root wtf
-list(APPEND juye_extern_include_dirs ${CMAKE_SOURCE_DIR})
+# list(APPEND juye_extern_include_dirs stb/) #its in the root wtf
+list(APPEND juye_extern_include_dirs ${CMAKE_CURRENT_SOURCE_DIR})
 
 
 #assimp
