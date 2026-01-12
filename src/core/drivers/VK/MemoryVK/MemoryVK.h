@@ -27,7 +27,7 @@ enum class HeapType{
 };
 
   Error Init(VkDevice device, VkPhysicalDevice gpu);
-  Error GetAMemoryTypeIndex(VkMemoryPropertyFlags flags);
+  int GetAMemoryTypeIndex(VkMemoryPropertyFlags flags);
   void Destory();
   // int SwitchDevice(VkDevice device);
   // int SwitchGPU(VkDevice gpu);

@@ -85,11 +85,11 @@ Error vak::Init(VkDevice device, VkPhysicalDevice gpu){
   return VAK_SUCCESS;
 };
 
-int GetAMemoryTypeIndex(VkMemoryPropertyFlags flags){
+int vak::GetAMemoryTypeIndex(VkMemoryPropertyFlags flags){
   return vak::GetAvailableMemoryType(0, flags);
 }
 
-void Destory(){
+void vak::Destory(){
 
 }
 

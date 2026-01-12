@@ -11,7 +11,7 @@ int vak::GetAvailableMemoryType(uint64_t bytes, VkMemoryPropertyFlags bits){
   }
 
   for(int i = 0; i < type->second.count; i++){
-    auto heaps = gDeviceContext.memoryTypeToHeapMap.find(type->second.indices[i]);
+    auto heaps = gDeviceContext.memoryTypeToHeapMap.find(bits);
     if(heaps == gDeviceContext.memoryTypeToHeapMap.end()){return -1;}
     for(int k = 0; k < type->second.count; k++){
       //TODO: checks sizes
