@@ -5,19 +5,20 @@ if(${CMAKE_CXX_STANDARD} LESS 14)
   message(FATAL_ERROR "juye minimum supported cxx standard is c++14")
 endif()
 
-file(MAKE_DIRECTORY ${CMAKE_BINARY_OUTPUT_DIRECTORY}/data)
+file(MAKE_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data)
 
 option(JUYE_FORCE_RELEASE OFF)
 
 set(BUILD_SHARED_LIBS OFF)
 set(root ${CMAKE_CURRENT_SOURCE_DIR})
-set(runtime_data ${CMAKE_BINARY_OUTPUT_DIRECTORY}/data/)
+set(runtime_data ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data/)
 set(atexture_directory ${root}/data/textures/)
 
 configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/configuration/build_generation.h.in"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/configuration/build_generation.h"
 )
+
 
 set(force_includes 
   # "-includecore/pch/assertions.h"
@@ -38,18 +39,27 @@ set(files
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/vk_helper.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/vkinternal.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/vk_wrappers.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/MemoryVK/MemoryVK.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/vkshader.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/shader.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/vkresource.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/tmp.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/vkplatform.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/helpers.cpp"
+
+  #vak 
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/MemoryVK/scoped/scratch.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/MemoryVK/MemoryVK.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/MemoryVK/internal.cpp"
 
   # "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/gk.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/renderer/renderer_vulkan.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/immediate/immediate.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/model/prefabs.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/fsystem/image.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/input/actions.cpp"
+
   # "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/actions.cpp"
-  # "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/model/prefabs.cpp"
   # "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/assets/loader.cpp"
   # "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/assets/registry.cpp"
-  # "${CMAKE_CURRENT_SOURCE_DIR}/src/core/fsystem/image.cpp"
 )
 
 
