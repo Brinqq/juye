@@ -59,11 +59,11 @@ static  uint16_t kCubeIndices[36] = {
 
 Prefab Prefab::Builder::Build() noexcept{
   Prefab ret;
-  ret.pVertices = this->pVertices;
-  ret.pIndices = this->pIndices;
-  ret.indices = this->indices;
-  ret.vertices = this->vertices;
-  ret.stride = this->stride;
+  ret.mesh.pVertices = this->pVertices;
+  ret.mesh.pIndices = this->pIndices;
+  ret.mesh.numIndices = this->indices;
+  ret.mesh.numVertices = this->vertices;
+  ret.mesh.stride = this->stride;
   return ret;
 };
 
@@ -91,7 +91,3 @@ Prefab::Builder& Prefab::Builder::SetMesh(const Prefab::BuiltinMeshType type) no
   
   return *this;
 }
-
-
-Prefab::Builder& Prefab::Builder::SetTexture(const BuiltinTextureType type) noexcept{}
-
