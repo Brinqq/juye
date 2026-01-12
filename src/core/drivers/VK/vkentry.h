@@ -1,6 +1,6 @@
 #pragma once
 
-#include "juye/gk/primitives.h"
+#include "core/primitives.h"
 
 #include <list>
 
@@ -21,8 +21,8 @@ struct GeometryWriteDescription{
 };
 
 struct LightEntry{
-  Color3 color;
-  Vector3f position;
+  juye::vec3<float> color;
+  juye::vec3<float> position;
 };
 
 struct GeometryEntry{

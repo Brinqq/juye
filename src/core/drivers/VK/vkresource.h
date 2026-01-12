@@ -62,9 +62,9 @@ public:
                     const VkImageLayout gpuReadyLayout, uint32_t flags);
 
   RenderPassBuilder& BeginSubpass();
-  RenderPassBuilder& SetReadAttachment(uint32_t index);
-  RenderPassBuilder& SetWriteAttachment(uint32_t index);
-  RenderPassBuilder& SetPreserveAttachment(uint32_t index);
+  RenderPassBuilder& SetReadAttachment(uint32_t index, VkImageLayout usage);
+  RenderPassBuilder& SetWriteAttachment(uint32_t index, VkImageLayout Usage);
+  RenderPassBuilder& SetPreserveAttachment(uint32_t index, VkImageLayout layout);
   RenderPassBuilder& EndSubpass();
   RenderPassBuilder& Reset();
 

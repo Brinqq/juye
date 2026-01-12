@@ -226,8 +226,8 @@ struct GpuCubeMap{
 
   // compile time state
   static constexpr uint64_t _stagingBufferSize = 800000000;
-  static constexpr int _macosDeviceLocalFlag = 0;
-  static constexpr int _macosHostAccessFlag = 1;
+  // static constexpr int _macosDeviceLocalFlag = 0;
+  // static constexpr int _macosHostAccessFlag = 1;
 
     const VkComponentMapping defaultTextureCMapping{ 
       VK_COMPONENT_SWIZZLE_R,
@@ -292,15 +292,15 @@ struct GpuCubeMap{
   uint32_t mMaxGPUs;
   juye::VlkGPUDescription* mSelectedGpu;
   
-  DepthBuffer depthBuffer;
+  // DepthBuffer depthBuffer;
 
   VkInstance instance;
   VkDevice device;
   VkPhysicalDevice gpu;
 
   VkSurfaceKHR surface;
-  VkSwapchainKHR swapchain;
-  VkExtent2D swapchainExtent;
+  // VkSwapchainKHR swapchain;
+  // VkExtent2D swapchainExtent;
 
   uint8_t numBackbuffers = 2;
   uint32_t curBackBuffer = 0;
@@ -328,10 +328,14 @@ struct GpuCubeMap{
   // refactor point
   juye::vlkSwapChain mSwapchain;
   juye::vlkDepthBuffer mDepthBuffer;
+
   vak::scScratch mAttachmentAllocator;
   std::vector<vak::scScratch::Memory> mAttachmentHandles;
   bk::bucket<VkImageView, 20> mImageViews;
-  
+
+  uint8_t mHostMemoryType;
+  uint8_t mDeviceMemoryType;
+
 
   //NOTE: All this is super tmp, for now we basically thow everything i dont
   // know how to structure in here and hope we figure it out when the system makes more sense.
@@ -418,7 +422,7 @@ public:
   void WriteCubeMap(ResourceHandle handle, const CubeMapWriteDescription& desc);
   void DestroyCubeMap(ResourceHandle handle);
 
-  ResourceHandle CreateLightSource(const juye::Color3& col, const juye::Vector3f& pos, 
+  ResourceHandle CreateLightSource(const juye::vec3<float>& col, const juye::vec3<float>& pos, 
                 const juye::driver::LightEntryType type);
 
   void WriteLightSource(ResourceHandle h);

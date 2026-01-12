@@ -6,14 +6,15 @@
 #include "bcl/containers/string.h"
 #include "bcl/containers/cache.h"
 
-
 #if _WIN32
+#define VK_USE_PLATFORM_WIN32_KHR
 #endif
 
 #include "vulkan/vulkan.h"
 #include "vk_debug.h"
 
 static constexpr int kMaxMemoryTypes = 10;
+static constexpr int kBackBufferMax = 2;
 
 enum QueueBitTypes{
   QueueBitNone = 0x0,
@@ -72,25 +73,16 @@ public:
 struct vlkDepthBuffer{
   VkImage image;
   VkFormat format;
-
+  VkImageView* view;
 };
 
-class vlkResourcePA{
-public:
-  vlkHeapTracker* mHeapTracker;
-  typedef void* CleanupHandle;
-
-  int Create(vlkHeapTracker* tracker, uint64_t bytes);
-  void Destory();
-  void Reconfigure();
-};
 
 class vlkSwapChain{
-  static constexpr int kBackBufferMax = 2;
 public:
 
   VkSwapchainKHR mHandle;
   VkImage mImages[kBackBufferMax];
+  VkImageView mViews[kBackBufferMax];
   uint32_t mBackBufferCount = 2;
   uint8_t mCurrentBuf;
   VkExtent2D mExtent;

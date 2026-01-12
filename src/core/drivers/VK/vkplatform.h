@@ -14,6 +14,7 @@ namespace juye{
         const char** ppExtensions = glfwGetRequiredInstanceExtensions(&count);
         for(int i = 0; i < count; ++i){
         ext->push_back(ppExtensions[i]);
+        ext.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
       }
 
       glfwTerminate();
