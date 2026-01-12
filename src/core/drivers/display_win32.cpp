@@ -7,45 +7,46 @@
 #include "windowsx.h"
 #include "dwmapi.h"
 
+using namespace juye;
+
 static constexpr COLORREF kBorderColor = 0x00ffffff;
 LPCSTR kWndClassName = "JuyeDisplayWC";
 LPCSTR kApplicationName = "juye";
 
 LRESULT CALLBACK DefaultWindowProcCallback(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam){
+    DisplayWin32* pDisplay = nullptr;
     switch (uMsg)
       {
 
-      case WM_KEYDOWN: {
-        break;
-      }
+      case WM_ERASEBKGND:
+        return 1;
 
-      case WM_KEYUP:{
-        break;
-      }
+      case WM_PAINT:
+        return 0;
 
-      //
-      // case WM_CREATE:{
-      //   CREATESTRUCT* info = reinterpret_cast<CREATESTRUCT*>(lParam);
-      //   Device* pDevice = reinterpret_cast<Device*>(info->lpCreateParams);
-      //   SetWindowLongPtr(hwnd, GWLP_USERDATA, LONG_PTR(pDevice));
-      //   pDevice = reinterpret_cast<Device*>(LONG_PTR(GetWindowLongPtr(hwnd, GWLP_USERDATA)));
-      //   break;
-      // }
-      //
-      // case WM_SIZE:{
-      //   if(pDevice){
-      //     uint32_t width = LOWORD(lParam);
-      //     uint32_t height = HIWORD(lParam);
-      //     pDevice->Resize(width, height);
-      //   };
-      //
-      //   break;
-      // }
+      case WM_CREATE:{
+        CREATESTRUCT* info = reinterpret_cast<CREATESTRUCT*>(lParam);
+        DisplayWin32* pDevice = reinterpret_cast<DisplayWin32*>(info->lpCreateParams);
+        SetWindowLongPtr(hwnd, GWLP_USERDATA, LONG_PTR(pDisplay));
+        pDisplay = reinterpret_cast<DisplayWin32*>(LONG_PTR(GetWindowLongPtr(hwnd, GWLP_USERDATA)));
+        return 0;
+        return 0;
+      }
+      
+      case WM_SIZE:{
+        if(pDisplay){
+          uint32_t width = LOWORD(lParam);
+          uint32_t height = HIWORD(lParam);
+          pDisplay->mWidth = width;
+          pDisplay->mHeight = height;
+        };
+        return 0;
+      }
 
       case WM_DESTROY: { 
         PostQuitMessage(0);
-        // pDevice->CloseWindow();
-        break;
+        pDisplay->Destroy();
+        return 0;
       }
 
      }
@@ -61,6 +62,8 @@ bool juye::DisplayWin32::IsRunning(){
 int juye::DisplayWin32::Init(){
   HINSTANCE ih = GetModuleHandleA(NULL);
 
+
+
   WNDCLASS wc = {};
   wc.hInstance = ih;
   wc.lpszClassName = kWndClassName;
@@ -71,7 +74,7 @@ int juye::DisplayWin32::Init(){
 
   mHandle = CreateWindowEx(0, kWndClassName, kApplicationName, WS_VISIBLE | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX, 
   CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
-  NULL, NULL, ih, nullptr);
+  NULL, NULL, ih, this);
 
   if (mHandle == NULL){ 
     return 1;
@@ -93,7 +96,7 @@ int juye::DisplayWin32::Init(){
 
 
 void juye::DisplayWin32::Update(){
-
+  ProcessMessages();
 }
 
 void* juye::DisplayWin32::Handle(){
@@ -102,14 +105,34 @@ void* juye::DisplayWin32::Handle(){
 }
 
 void juye::DisplayWin32::Destroy(){
-  mIsRunning = false;
-  DestroyWindow(mHandle);
+  if(mIsRunning){
+    mIsRunning = false;
+    DestroyWindow(mHandle);
+  }
 }
 
-juye::DisplayInputEntry* juye::DisplayWin32::MapInputStream(){
-  return nullptr;
+bool DisplayWin32::PollKey(KeyCode code){
+  int x = _juye_translate_key(code);
+  if(GetAsyncKeyState(x) & 0x8000){
+    return true;
+  };
+  return false;
 }
 
+void DisplayWin32::ProcessMessages(){
+  MSG msg;
+
+  while(PeekMessageA(&msg, mHandle, 0,0, PM_REMOVE)){
+   TranslateMessage(&msg);
+
+   switch (msg.message){
+     case WM_KEYDOWN: return;
+     case WM_KEYUP: return;
+    default:
+      DispatchMessageA(&msg);
+   }
+  }
+}
 
 // #define WCM_DESTROY (WM_USER+0)
 //

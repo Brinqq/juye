@@ -2,12 +2,11 @@
 #include "keyboard.h"
 
 #include <array>
+#include <vector>
 
 namespace juye{
 
-struct DisplayInputEntry{
-  enum KeyCode code;
-};
+static constexpr int kInputStreamMax = 100;
 
 class DisplayDriver{
 public:
@@ -16,10 +15,11 @@ public:
   virtual void Destroy() = 0;
   virtual bool IsRunning() = 0;
   virtual void* Handle() = 0;
+  virtual bool PollKey(KeyCode code) = 0;
+  virtual ~DisplayDriver() = default;
 
   //NOTE: Input stream is cleared every frame, so proccessing must
-  //be dont prior to calling ::update().
-  virtual DisplayInputEntry* MapInputStream() = 0;
+  //be done prior to calling ::update().
 };
 
 }//namespace juye
@@ -31,17 +31,19 @@ namespace juye{
 
 class DisplayWin32 : public DisplayDriver{
 private:
-static constexpr int kInputStreamMax = 100;
+private:
+  void ProcessMessages();
+public:
   HWND mHandle;
   int mWidth, mHeight;
   bool mIsRunning = false;
-public:
+
   virtual int Init() override;
   virtual void Update() override;
   virtual void Destroy() override;
   virtual bool IsRunning() override;
   virtual void* Handle() override;
-  virtual DisplayInputEntry* MapInputStream() override;
+  virtual bool PollKey(KeyCode code) override;
 
 };//class DipslayWin32
 }//namespace juye
