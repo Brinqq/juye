@@ -1,6 +1,6 @@
 .env/*
 build/*
 external/*
-!external/bcl
+!external/CMakeLists.txt
 build_generation.h
 .ds_store
