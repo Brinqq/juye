@@ -119,13 +119,5 @@ target_link_directories(${PROJECT_NAME} PRIVATE
 
 
 if(compile_samples)
-  set (sample_include ${root}/include)
-  set (sample_out ${CMAKE_BINARY_OUTPUT_DIRECTORY}/samples)
-  set (sample_lib ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
-
-  add_executable(HelloTriangle ${root}/samples/hellotriangle.cpp)
-  target_link_directories(HelloTriangle PRIVATE ${sample_lib})
-  target_include_directories(HelloTriangle PRIVATE ${sample_include})
-  target_link_directories(HelloTriangle PRIVATE ${sample_link})
-  set_target_properties(HelloTriangle PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${sample_out})
+  add_subdirectory(samples)
 endif()
