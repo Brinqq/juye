@@ -19,3 +19,28 @@ void VK::tCreateLightBuffers(){
   vkcall(MemoryVK::Allocate(device, &directionalLightGpuMemory, req.size, _macosDeviceLocalFlag))
   vkcall(vkBindBufferMemory(device, directionalLightGpuBuffer, directionalLightGpuMemory, 0))
 }
+
+
+enum class gkSomeType{
+  ThisEnum,
+  ThatEnum,
+};
+
+enum gkSomeFlag{
+  GK_SOME_THING_BIT
+  GK_OTHER_THING_BIT
+};
+
+class gkCustomLight{
+  gkSomeType mType;
+};
+
+struct gkType{
+  int someNumber;
+};
+
+
+const int kThisInteger= 20;
+int gSomeInteger;
+
+

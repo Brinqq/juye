@@ -1010,6 +1010,7 @@ void VK::WriteFrustum(float* vp){
   vkcall(ivk::wrappers::BeginCommandBuffer(mainCommandBuffer))
   GpuUploadBufData(mainCommandBuffer, stagingBuffers[0].second, stagingBuffers[0].first, projectionViewBuffer, vp, kProjectionMatrixSize);
 
+
   VkSubmitInfo submit{};
   submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   submit.commandBufferCount = 1;
