@@ -7,7 +7,6 @@ if(APPLE)
   set(juye_extern_shared_ext "dylib")
 endif()
 
-
 if(UNIX)
   set(juye_extern_static_ext "a")
   set(juye_extern_shared_ext "so")
