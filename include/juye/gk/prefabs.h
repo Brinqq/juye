@@ -2,10 +2,11 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <gk/model/model.h>
 
 namespace juye{
 
-class Prefab{
+struct Prefab{
 private:
 public:
   float* pVertices;
@@ -13,6 +14,7 @@ public:
   uint32_t vertices;
   uint32_t stride;
   uint32_t indices;
+  gkMesh mesh;
 
   ~Prefab(){}
 
@@ -38,7 +40,6 @@ public:
     Builder(Builder&& rhs){};
 
     Builder& SetMesh(const BuiltinMeshType type) noexcept;
-    Builder& SetTexture(const BuiltinTextureType type) noexcept;
     Prefab Build() noexcept;
   };
 

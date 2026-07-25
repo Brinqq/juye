@@ -1,6 +1,0 @@
-[submodule "bcl"]
-	path = bcl
-	url = https://github.com/Brinqq/bcl.git
-[submodule "external/bcl"]
-	path = external/bcl
-	url = https://github.com/Brinqq/bcl.git

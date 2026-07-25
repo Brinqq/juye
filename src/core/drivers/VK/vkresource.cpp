@@ -1,5 +1,6 @@
 #include "vkresource.h"
 #include "core/global.h"
+#include "vk_helper.h"
 
 using namespace juye::driver;
 
@@ -15,7 +16,7 @@ using namespace juye::driver;
     desc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     desc.format = format;
     desc.samples = VK_SAMPLE_COUNT_1_BIT;
-    desc.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    desc.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     desc.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     attachments[numAttachments] = desc;
     depthRef = VkAttachmentReference{static_cast<uint32_t>(numAttachments),  VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
@@ -31,7 +32,7 @@ using namespace juye::driver;
     desc.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     desc.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     desc.finalLayout = gpuReadyLayout;
-    desc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    desc.initialLayout = initialLayout;
     desc.format = format;
     desc.samples = VK_SAMPLE_COUNT_1_BIT;
     desc.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -69,29 +70,29 @@ using namespace juye::driver;
     return *this;
   }
 
-  RenderPassBuilder& RenderPassBuilder::SetReadAttachment(uint32_t index){
+  RenderPassBuilder& RenderPassBuilder::SetReadAttachment(uint32_t index, VkImageLayout usage){
     auto& pass = subpasses.at(numSubpasses);
     auto& attachment = attachments[index];
-    VkAttachmentReference ref{index, attachment.initialLayout};
+    VkAttachmentReference ref{index, attachment.finalLayout};
     pass.read[pass.numReadAttachmets] = ref;
     pass.numReadAttachmets++;
     return *this;
   }
 
-  RenderPassBuilder& RenderPassBuilder::SetWriteAttachment(uint32_t index){
+  RenderPassBuilder& RenderPassBuilder::SetWriteAttachment(uint32_t index, VkImageLayout usage){
     auto& pass = subpasses.at(numSubpasses);
     auto& attachment = attachments[index];
-    VkAttachmentReference ref{index, attachment.initialLayout};
+    VkAttachmentReference ref{index, usage};
     pass.write[pass.numWriteAttachmets] = ref;
     pass.numWriteAttachmets++;
     return *this;
   }
 
   
-  RenderPassBuilder& RenderPassBuilder::SetPreserveAttachment(uint32_t index){
+  RenderPassBuilder& RenderPassBuilder::SetPreserveAttachment(uint32_t index, VkImageLayout layout){
     auto& pass = subpasses.at(numSubpasses);
     auto& attachment = attachments[index];
-    VkAttachmentReference ref{index, attachment.initialLayout};
+    VkAttachmentReference ref{index, layout};
     pass.preserve[pass.numPreserveAttachmets] = index;
     pass.numPreserveAttachmets++;
     return *this;
@@ -125,6 +126,16 @@ using namespace juye::driver;
   dependency.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
   dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
   dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+  VkSubpassDependency presentDependency{};
+  presentDependency.srcSubpass = 0; // Your rendering subpass
+  presentDependency.dstSubpass = VK_SUBPASS_EXTERNAL;
+  presentDependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  presentDependency.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+  presentDependency.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+  presentDependency.dstAccessMask = 0;
+
+  VkSubpassDependency k[2]{dependency,presentDependency};
   
     VkRenderPass ret;
     VkRenderPassCreateInfo c;
@@ -136,8 +147,8 @@ using namespace juye::driver;
     c.pAttachments = attachments.data();
     c.subpassCount = numSubpasses;
     c.pSubpasses = subpassHandles.data();
-    c.dependencyCount = 1;
-    c.pDependencies = &dependency;
+    c.dependencyCount = 2;
+    c.pDependencies = k;
 
     vkcall(vkCreateRenderPass(device, &c, nullptr, &ret))
     return ret;
@@ -184,6 +195,96 @@ VkDescriptorSetLayout DescriptorSetLayoutBuilder::Build(VkDevice device, VkAlloc
     return vkAllocateDescriptorSets(device, &info, pSets);
   }
 
+
+static constexpr VkFormat kSupportedPresentFormats[] = {
+  VK_FORMAT_B8G8R8A8_SRGB,
+  VK_FORMAT_R8G8B8A8_SRGB,
+  VK_FORMAT_B8G8R8A8_UNORM,
+  VK_FORMAT_R8G8B8A8_UNORM,
+};
+
+static constexpr VkColorSpaceKHR kSupportedColorSpaces[] = {
+  VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
+};
+
+namespace juye{
+
+
+int vlkSwapChain::Create(VkDevice device, VkPhysicalDevice gpu, VkSurfaceKHR surface, VkAllocationCallbacks* pAllocator){
+  VkBool32 present = 69;
+  vkGetPhysicalDeviceSurfaceSupportKHR(gpu, 0, surface, &present);
+  if(!present) return 1;
+
+  VkSurfaceCapabilitiesKHR surfaceInfo;
+  vkcall(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu, surface, &surfaceInfo))
+  mExtent = surfaceInfo.currentExtent;
+
+  uint32_t surfaceFormatCount = 0;
+  VkSurfaceFormatKHR* pSurfaceFormats;
+  vkcall(vkGetPhysicalDeviceSurfaceFormatsKHR(gpu, surface, &surfaceFormatCount, nullptr))
+  pSurfaceFormats = static_cast<VkSurfaceFormatKHR*>(alloca(sizeof(VkSurfaceFormatKHR) * surfaceFormatCount));
+  vkcall(vkGetPhysicalDeviceSurfaceFormatsKHR(gpu, surface, &surfaceFormatCount, pSurfaceFormats))
+
+  bool found = false;
+  for(int i = 0; i < std::size(kSupportedPresentFormats); ++i){
+    for(int j = 0; i < surfaceFormatCount; ++i){
+      if(kSupportedPresentFormats[i] == pSurfaceFormats[j].format){
+        for(int k = 0; k < std::size(kSupportedColorSpaces); ++k){
+          if(kSupportedColorSpaces[k] == pSurfaceFormats[j].colorSpace){
+            mFormat = kSupportedPresentFormats[i];
+            mColorspace = kSupportedColorSpaces[k];
+            found = true;
+            goto _get_me_out;
+          }
+        }
+      }
+    }
+  }
+  _get_me_out:
+
+  if(found == false){
+    juye_runtime_error();
+  }
+
+  VkSwapchainCreateInfoKHR cSwapchain{};
+  cSwapchain.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+  cSwapchain.flags = 0;
+  cSwapchain.minImageCount = mBackBufferCount;
+  cSwapchain.imageFormat = mFormat;
+  cSwapchain.imageColorSpace = mColorspace;
+  cSwapchain.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+  cSwapchain.imageArrayLayers = 1;
+  cSwapchain.imageExtent = mExtent;
+  cSwapchain.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+  cSwapchain.presentMode = VK_PRESENT_MODE_FIFO_KHR;
+  cSwapchain.clipped = VK_TRUE;
+  cSwapchain.surface = surface;
+  cSwapchain.preTransform = surfaceInfo.currentTransform;
+  cSwapchain.oldSwapchain = VK_NULL_HANDLE;
+  cSwapchain.pQueueFamilyIndices = nullptr;
+  cSwapchain.queueFamilyIndexCount = 0;
+  cSwapchain.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+  vkcall(vkCreateSwapchainKHR(device, &cSwapchain, nullptr, &mHandle))
+
+
+  vkcall(vkGetSwapchainImagesKHR(device, mHandle, &mBackBufferCount, mImages))
+
+  for(int i = 0; i < mBackBufferCount; i++){
+    mViews[i] = vkh::CreateImageView(device, mImages[i], VK_IMAGE_VIEW_TYPE_2D, mFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+  }
+
+  return 0;
+}
+
+void vlkSwapChain::Destroy(VkDevice device, VkAllocationCallbacks* pAllocator){
+  vkDestroySwapchainKHR(device, mHandle, pAllocator);
+}
+
+void vlkSwapChain::Resize(VkSurfaceKHR surface){
+
+}
+
+}//juye
 
 
 

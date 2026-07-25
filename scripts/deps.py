@@ -1,63 +1,27 @@
+import platform
 import subprocess
-import os
-from collections import namedtuple
-from enum import Enum
-import shutil
+from pathlib import Path
 
-#TODO: Set relative to project root so this is portable across computers.
+external_folder = Path(__file__).resolve().parent.parent / "external"
 
-DEP_ROOT = "C:/main/.dev/projects/codename/ssf/external/"
-DEP_BIN = DEP_ROOT + "bin/"
-DEP_INCLUDE = DEP_ROOT + "include/"
-
-root = os.path.normpath(DEP_ROOT)
-bin = os.path.normpath(DEP_BIN)
-include = os.path.normpath(DEP_INCLUDE)
+glm_folder = external_folder / "glm"
+yamlcpp_folder = external_folder / "yaml-cpp"
+stb_folder = external_folder / "stb"
+assimp_folder = external_folder / "assimp"
+glfw_folder = external_folder / "glfw"
 
 
-class BuildSystem(Enum):
-    Cmake = 1
+#TODO: maybe use something like gitpython for better dependency managment<git tags/branches>.
 
-git_dependency = namedtuple("git_dependency", ["name", "repo", "build_system"])
+def git_clone(repo: str, path: Path):
+    if not path.exists():
+        subprocess.run(
+            ["git", "clone", "-q", repo, path])
 
-dependencies_git = [
-    git_dependency
-    (
-        "bcl", 
-       "https://github.com/Brinqq/bcl.git", 
-       BuildSystem.Cmake
-    )
-]
+git_clone("https://github.com/g-truc/glm.git", glm_folder)
+git_clone("https://github.com/jbeder/yaml-cpp.git", yamlcpp_folder)
+git_clone("https://github.com/nothings/stb.git", stb_folder)
+git_clone("https://github.com/assimp/assimp.git", assimp_folder)
 
-def make_directories():
-    os.mkdir(DEP_ROOT)
-    os.mkdir(DEP_BIN)
-    os.mkdir(DEP_INCLUDE)
-
-def clean():
-    arr = os.listdir(DEP_ROOT)
-    if not arr.__len__() == 0:
-        shutil.rmtree(DEP_ROOT)
-
-def build_dependency(sys: BuildSystem, proj_root: str): 
-    if sys == BuildSystem.Cmake:
-        return
-
-def git_clone(repo: str, output_path: str, commit: str | None):
-    res = subprocess.run(["git", "clone", repo, output_path]).returncode
-    if res:
-        print("error")
-        exit()
-
-
-def build_full():
-    for dep in dependencies_git:
-        git_clone(dep.repo, DEP_ROOT + dep.name, None)
-        build_dependency(BuildSystem.Cmake, DEP_ROOT + dep.name)
-
-clean()
-
-if not os.path.exists(DEP_ROOT):
-    make_directories()
-    build_full()   
-
+if not platform.system() == "Windows":
+    git_clone("https://github.com/glfw/glfw.git", glfw_folder)

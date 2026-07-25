@@ -1,7 +1,5 @@
 #pragma once
 
-#include "core/global.h"
-
 namespace juye{
 
 struct ImageData{
@@ -11,6 +9,6 @@ struct ImageData{
   int width;
 };
 
-  ImageData LoadImage(const char* filepath);
-  void UnloadImage(ImageData& image);
+ImageData LoadI(const char* filepath);
+void UnloadImage(ImageData& image);
 }

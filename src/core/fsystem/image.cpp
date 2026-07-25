@@ -5,7 +5,7 @@
 
 namespace juye{
 
-ImageData LoadImage(const char* filepath){
+ImageData LoadI(const char* filepath){
   int w, h, c;
   stbi_uc* pixels = stbi_load(filepath, &w, &h, &c, STBI_rgb_alpha);
   size_t bytes = w * h * 4;

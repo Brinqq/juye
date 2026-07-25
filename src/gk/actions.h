@@ -1,5 +1,5 @@
 #pragma once
-#include "keyboard.h"
+#include "core/drivers/keyboard.h"
 
 #include <stdint.h>
 

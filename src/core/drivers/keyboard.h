@@ -14,10 +14,27 @@ const int PlatformKeyMap[] = {
   GLFW_KEY_SPACE,
   GLFW_KEY_ESCAPE
 };
+#endif
+
+#if _WIN32
+#include "windows.h"
+#include "winuser.h"
+
+const int kKeyMap[] = {
+  0x57,
+  0x41,
+  0x53,
+  0x44,
+  VK_LBUTTON,
+  VK_RBUTTON,
+  VK_SHIFT,
+  VK_SPACE,
+  VK_ESCAPE
+};
 
 #endif
 
-#define _ssf_translate_key(_key) PlatformKeyMap[_key]
+#define _juye_translate_key(_key) kKeyMap[_key]
 
 namespace juye{
   enum KeyCode{

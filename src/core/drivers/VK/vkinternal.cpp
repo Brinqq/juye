@@ -1,5 +1,5 @@
 #include "vkinternal.h"
-#include "vkshader.h"
+#include "shader.h"
 
 #include <bcl/containers/vector.h>
 

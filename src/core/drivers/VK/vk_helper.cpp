@@ -3,12 +3,12 @@
 #include "vk_debug.h"
 
 #include "core/debug.h"
-
-#include <alloca.h>
+#include "vulkan/vulkan_core.h"
+#include  <stdlib.h>
 #include <vector>
 
-#include "GLFW/glfw3.h"
 #if __APPLE__
+#include "GLFW/glfw3.h"
 
   VkSurfaceKHR vkh::GetPlatformSurface(VkInstance instance, GLFWwindow* handle){
     VkSurfaceKHR ret;
@@ -56,45 +56,7 @@ VkExtent2D vkh::GetCompatibleSurfaceExtent(){
 //------------------------------------------------
 //fixme end
 
-
-
-
-VkPhysicalDevice vkh::GetGpu(VkInstance& instance){
-  //FIXME:(Crossplatform support) add gpu selection only selects first gpu at the moment.
-
-  uint32_t count = 0;
-  vkEnumeratePhysicalDevices(instance, &count, nullptr);
-  VkPhysicalDevice* pDat = (VkPhysicalDevice*)alloca(count * sizeof(VkPhysicalDevice));
-  vkEnumeratePhysicalDevices(instance, &count, pDat);
-  return pDat[0];
-
-}
-
-void vkh::GenerateQueueFamilies(VkPhysicalDevice device, QueueFamily* const pDat, size_t& count){
-  if(pDat != nullptr){
-    uint32_t lcount = count;
-    VkQueueFamilyProperties* pProperties = (VkQueueFamilyProperties*)alloca(lcount * sizeof(VkQueueFamilyProperties));
-    vkGetPhysicalDeviceQueueFamilyProperties(device, &lcount, pProperties);
-
-    for(int i = 0; i < lcount; ++i){
-      pDat[i].index = i;
-      pDat[i].maxQueues = pProperties[i].queueCount;
-      pDat[i].bits = QueueBitNone;
-      if(pProperties->queueFlags & VK_QUEUE_GRAPHICS_BIT){ pDat[i].bits = static_cast<QueueBitTypes>(pDat[i].bits | QueueBitGraphic);}
-      if(pProperties->queueFlags & VK_QUEUE_COMPUTE_BIT){ pDat[i].bits = static_cast<QueueBitTypes>(pDat[i].bits  | QueueBitCompute);}
-      if(pProperties->queueFlags & VK_QUEUE_TRANSFER_BIT){ pDat[i].bits = static_cast<QueueBitTypes>(pDat[i].bits | QueueBitTransfer);}
-      if(pProperties->queueFlags & VK_QUEUE_SPARSE_BINDING_BIT){ pDat[i].bits = static_cast<QueueBitTypes>(pDat[i].bits | QueueBitSparse);}
-    }
-
-    return;
-  }
-
-  uint32_t lcount = 0;
-  vkGetPhysicalDeviceQueueFamilyProperties(device, &lcount, nullptr);
-  count = lcount;
-}
-
-VkDeviceQueueCreateInfo vkh::CreateDeviceQueueCI(uint32_t index, uint32_t count, float p){
+VkDeviceQueueCreateInfo juye::vlkQueueInfo(uint32_t index, uint32_t count, float p){
   VkDeviceQueueCreateInfo ret{};
   ret.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
   ret.flags = 0;
@@ -363,5 +325,69 @@ VkResult vkh::CreateBuffer(VkDevice device, VkBuffer* buf, size_t bytes, const V
 void vkh::DestroyBuffer(VkDevice device, VkBuffer buffer){
   vkDestroyBuffer(device, buffer, nullptr);
 }
+
+
+//selects available first format in array paramater.
+// bool juye::vlkChooseFormat(VkPhysicalDevice gpu, const bk::span<VkFormat>& formats){
+//   for(const VkFormat format : formats){
+//     VkFormatProperties properties;
+//     vkGetPhysicalDeviceFormatProperties(gpu, format, &properties)
+//   properties.bufferFeatures
+//   }
+// }
+//
+// bool juye::vlkChooseColorSpace(VkPhysicalDevice gpu, const bk::span<const char*>& colorspace){
+// }
+using namespace juye;
+
+bool juye::vlkCheckInstanceLayers(const bk::span<const char*>& span){
+  uint32_t count = 0;
+  vkEnumerateInstanceLayerProperties(&count, nullptr);
+  std::vector<VkLayerProperties> properties(count);
+  vkEnumerateInstanceLayerProperties(&count, properties.data());
+
+  for(const char* s : span){
+    bool found = false;
+    for(const VkLayerProperties& p : properties){
+      if(!strcmp(s, p.layerName)){
+        found = true;
+        break;
+      }
+    }
+      if(found == false){
+        return false;
+      }
+
+      found = false;
+  }
+
+  return true;
+}
+
+
+bool juye::vlkCheckInstanceExtensions(const char* pLayer, const bk::span<const char*>& span){
+  uint32_t count;
+  vkcall(vkEnumerateInstanceExtensionProperties(pLayer, &count, nullptr))
+  std::vector<VkExtensionProperties> properties(count);
+
+  vkcall(vkEnumerateInstanceExtensionProperties(nullptr, &count, properties.data()))
+  for(const char* s : span){
+    bool f = false;
+    for(const auto p : properties){
+      if(!strcmp(s, p.extensionName)){
+        f = true;
+        break;
+      }
+    }
+    if(f == false){
+      return false;
+    }
+    f = false;
+  }
+
+  return true;
+} 
+
+
 
 

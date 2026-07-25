@@ -13,14 +13,19 @@ class ShaderType(Enum):
 
 
 # hardcode for now
-OUT_FOLDER = "/Users/brinq/.dev/projects/solar-sim/build/bin/data/"
+if os.getenv("JUYE_BINARY_PATH") is None:
+    print("Could not find juye binary path.")   
+
+OUT_FOLDER = os.getenv("JUYE_BINARY_PATH").__str__() + "/data/"
+
 OUT_EXTENSION = ".shader"
 ARG = "-O0"
 
-COMPILER = os.getenv("SSF_VULKAN_BIN")
+COMPILER = os.getenv("VULKAN_SDK").__str__() + "/Bin"
+
 
 if COMPILER == None:
-    print("Non valid vulkan binary path. NOTE: set SSF_VULKAN_BIN in env")
+    print("Non valid vulkan binary path. NOTE: set VULKAN_SDK in env")
     sys.exit(1)
 
 COMPILER = COMPILER.__str__().__add__("/glslc")

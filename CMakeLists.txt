@@ -1,123 +1,26 @@
 cmake_minimum_required(VERSION 4.0.0)
 project(juye)
 
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_BINARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+if(${CMAKE_CXX_STANDARD} LESS 17)
+  message(FATAL_ERROR "juye minimum supported cxx standard is c++17")
+endif()
 
-file(MAKE_DIRECTORY ${CMAKE_BINARY_OUTPUT_DIRECTORY}/data)
+file(MAKE_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data)
 
-set(root ${CMAKE_CURRENT_SOURCE_DIR})
+option(JUYE_FORCE_RELEASE OFF)
 
-set(runtime_data ${CMAKE_BINARY_OUTPUT_DIRECTORY}/data/)
+set(BUILD_SHARED_LIBS OFF)
+set(runtime_data ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data/)
 set(atexture_directory ${root}/data/textures/)
 
-set(compile_samples TRUE)
+# configure_file(
+#   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/configuration/build_generation.h.in"
+#   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/configuration/build_generation.h"
+# )
 
-set(force_includes 
-  "-includecore/pch/assertions.h"
-  "-includecore/pch/error.h"
-  "-includecore/global.h"
-)
-
-set(files
-  # systems
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/gk.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/actions.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/model/prefabs.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/assets/loader.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/gk/assets/registry.cpp"
-
-  # core
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/juye.cpp"
-
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/device.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/vk_core.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/vk_helper.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/vkinternal.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/vk_wrappers.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/MemoryVK/MemoryVK.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/vkshader.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/vkresource.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/drivers/VK/tmp.cpp"
-
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/fsystem/image.cpp"
-)
-
-configure_file(
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/configuration/build_generation.h.in"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/configuration/build_generation.h"
-)
+add_subdirectory(external)
 
 
-set(CMAKE_CXX_STANDARD 20)
+add_subdirectory(samples)
+add_subdirectory(src)
 
-set(includes)
-set(libs)
-set(lib_directories
-${CMAKE_BINARY_DIR}/lib
-)
-
-set(include_directories
-  ${root}/include
-  ${root}/src
-  ${root}/external
-  ${root}/external/bcl/src/include
-  ${root}/external/glm
-  ${root}/external/yaml-cpp/include
-  ${root}/external/assimp/include
-  ${CMAKE_BINARY_DIR}/juye/external/assimp/include
-)
-
-
-# bcl
-set(CMAKE_BUILD_TYPE "Release")
-add_subdirectory(${root}/external/bcl/src)
-add_subdirectory(${root}/external/yaml-cpp)
-add_subdirectory(${root}/external/assimp)
-
-#vulkan 
-# TODO: unhardcode please.
-# list(APPEND ${libs} vulkan.1.4.328)
-list(APPEND lib_directories /Users/brinq/.dev/librarys/VulkanSDK/1.4.328.1/macOS/lib)
-list(APPEND include_directories /Users/brinq/.dev/librarys/VulkanSDK/1.4.328.1/macOS/include)
-
-if(APPLE)
-  list(APPEND include_directories ${root}/external/glfw/include)
-  add_subdirectory(${root}/external/glfw)
-  set(macos_frameworks "-framework Metal -framework IOKit -framework Cocoa -framework QuartzCore")
-endif()
-
-
-set(CMAKE_BUILD_TYPE "Debug")
-
-set(CMAKE_CXX_FLAGS
-  "-g"
-)
-
-add_library(${PROJECT_NAME} ${files})
-target_include_directories(${PROJECT_NAME} PRIVATE ${include_directories})
-
-if(APPLE OR LINUX)
-  target_compile_options(${PROJECT_NAME} PRIVATE ${force_includes})
-endif()
-if(WIN32)
-  target_compile_options(${PROJECT_NAME} PRIVATE /FI${force_includes}) #prob not correct
-endif()
-
-target_link_libraries(${PROJECT_NAME} PUBLIC 
-  /Users/brinq/.dev/librarys/VulkanSDK/1.4.328.1/macOS/lib/libvulkan.1.dylib
-  ${CMAKE_BINARY_DIR}/lib/libglfw3.a
-  yaml-cpp
-  assimp
-  ${macos_frameworks}
-)
-
-target_link_directories(${PROJECT_NAME} PRIVATE 
-  ${lib_directories}
-)
-
-
-if(compile_samples)
-  add_subdirectory(samples)
-endif()
