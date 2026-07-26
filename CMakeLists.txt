@@ -18,9 +18,12 @@ set(atexture_directory ${root}/data/textures/)
 #   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/configuration/build_generation.h"
 # )
 
+#shader compilation
+set(SLANGC ${slang_SOURCE_DIR}/bin/slangc${_exe})
+
 add_subdirectory(external)
 
 
-add_subdirectory(samples)
 add_subdirectory(src)
+add_subdirectory(samples)
 
