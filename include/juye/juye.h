@@ -2,6 +2,7 @@
 
 namespace juye{
 
-int Init();
+int dev_main();
 
 }
+
