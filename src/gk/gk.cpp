@@ -2,11 +2,8 @@
 #include "juye/gk/prefabs.h"
 #include "core/global.h"
 
-#include "assets/registry.h"
-
 #include "core/drivers/device.h"
 #include "core/fsystem/file.h"
-#include "core/drivers/VK/vk_core.h"
 #include "core/configuration/build_generation.h"
 #include "core/debug.h"
 
@@ -24,6 +21,8 @@
 using namespace juye;
 
 extern bool gApplicationClose;
+
+struct in_rhis{};
 
 struct Camera{
   glm::mat4 view;
@@ -146,8 +145,9 @@ void CubeMapDataCleanup(){
   }
 }
 
-const char* kCarFile = "/Users/brinq/.dev/projects/solar-sim/juye/data/models/builtin/car.glb";
-AssetRegistry reg{};
+#if WIN32
+
+#include "core/drivers/VK/vk_core.h"
 
 int GK::Init(VK& vulkan){
   driver = &vulkan;
@@ -258,3 +258,5 @@ void GK::Destroy(){
   // driver->Destroy();
   device.CloseGraphicWindow();
 }
+
+#endif //WIN32
