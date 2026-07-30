@@ -12,7 +12,7 @@
 
 using namespace juye;
 
-#include "bcl/containers/cache.h"
+#include "bk/containers/cache.h"
 
 static constexpr int kBuiltinTextureCount = 1;
 
@@ -52,7 +52,7 @@ gkImmediateDrawList::gkImmediateDrawList(){
   std::string texpath2(_SSF_GENERATED_TEXTURE_FOLDER);
   gImages[0]  = LoadI(texpath2.append("orange.png").c_str());
   if(gImages[0].data == nullptr){
-    juye_runtime_error();
+    // _juye_runtime_error('h
   }
 }
 

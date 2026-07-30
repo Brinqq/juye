@@ -1,6 +1,5 @@
 #pragma once
 
-#include "gk/scene/scene.h"
 #include "core/primitives.h"
 #include <stdint.h>
 
@@ -29,6 +28,9 @@ public:
   juye::gkScene mScene;
   ImmediateBuffer* mImBuf;
   gkTexture mTextures;
+
+  void begin();
+  void end();
 
 public:
   // void SetDrawMode2D()
