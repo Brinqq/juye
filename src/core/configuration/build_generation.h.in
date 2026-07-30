@@ -1,4 +1,0 @@
-#pragma once
-
-constexpr const char* _SSF_GENERATED_SHADER_FOLDER = "@runtime_data@";
-constexpr const char* _SSF_GENERATED_TEXTURE_FOLDER = "@atexture_directory@";
