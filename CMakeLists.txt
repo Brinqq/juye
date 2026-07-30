@@ -23,7 +23,6 @@ set(SLANGC ${slang_SOURCE_DIR}/bin/slangc${_exe})
 
 add_subdirectory(external)
 
-
 add_subdirectory(src)
 add_subdirectory(samples)
 
