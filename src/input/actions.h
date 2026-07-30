@@ -1,35 +1,14 @@
 #pragma once
-#include "core/drivers/keyboard.h"
+#include "drivers/keyboard.h"
 
-#include "core/drivers/display.h"
-#include "bcl/containers/bucket.h"
-
-#define JUYE_MAX_KEYS_PER_ACTION 2
+#include <stdint.h>
 
 namespace juye{
-typedef void* inpAction;
+  typedef uint16_t ActionHandle;
 
-class inpActionSystem{
-  struct ActionEntry{
-    juye::KeyCode codes[JUYE_MAX_KEYS_PER_ACTION];
-  };
-
-  DisplayDriver* mDisplay;
-  bk::bucket<ActionEntry, 20> mActions;
-public:
-  int Init(DisplayDriver* pDisplay);
-  inpAction Add(juye::KeyCode code);
-  void Remove(inpAction action);
-  bool Check(inpAction action);
-  bool IsValid(inpAction action);
-
-};
-
-  // typedef uint16_t inpActionHandle;
-  //
-  // inpActionHandle CreateAction(); 
-  // void DestroyAction(inpActionHandle);
-  // int MapAction(inpActionHandle handle, KeyCode code);
-  // void UnmapAction(inpActionHandle, KeyCode code);
-  // int CheckAction(inpActionHandle handle);
+  ActionHandle CreateAction(); 
+  void DestroyAction(ActionHandle);
+  int MapAction(ActionHandle handle, KeyCode code);
+  void UnmapAction(ActionHandle, KeyCode code);
+  int CheckAction(ActionHandle handle);
 }
