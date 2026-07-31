@@ -49,7 +49,6 @@ private:
     camera.projection = glm::perspectiveFov(glm::radians(60.0f), static_cast<float>(3000), static_cast<float>(2000), 0.1f, 1000.0f);
   }
 
-
 };
 
 struct gk_draw_data{
@@ -79,12 +78,14 @@ void render_fe_begin(){
   // transform = driver.allocate_memory(nullptr, bytes, GDI_MEMORY_LINEAR_BIT);
   driver.write_memory(scene.cube_default.vertices, vertex, scene.cube_default.vertice_bytes, 0);
   driver.write_memory(scene.cube_default.indices, index, scene.cube_default.indice_bytes, 0);
+  
 }
 
 void render_fe_tick(){
   float* p = glm::value_ptr(scene.camera.projection);
   float* v = glm::value_ptr(scene.camera.view);
   driver.set_projection(v, p);
+  
 
   driver.dummy_draw(vertex, index, scene.cube_default.n_indices);
   driver.submit_frame();

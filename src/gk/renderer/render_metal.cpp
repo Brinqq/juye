@@ -232,7 +232,6 @@ void gdi_device::dummy_draw(void* vertices, void* indices, size_t n_indices){
                                             static_cast<MTL::Buffer*>(indices)->gpuAddress(), 2 * n_indices  
   );
   
-
   cq->wait(drawable);
   renderpass_encoder->endEncoding();
   cb->endCommandBuffer();
