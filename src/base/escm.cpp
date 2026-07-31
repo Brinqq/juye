@@ -7,14 +7,15 @@
 //NOTE: This is the main subsytem glue module for now file, until
 // we figure out how we want to structure the engine.
 
-namespace{
-using namespace juye;
-
-DisplayDriver* win = nullptr;
+juye:: DisplayDriver* win = nullptr;
 
 void* query_main_display(){
-  return win;
+  return win->handle();
 }
+
+
+namespace{
+using namespace juye;
 
 DisplayDriver* create_window(){
   #if _WIN32
@@ -23,7 +24,6 @@ DisplayDriver* create_window(){
     DisplayDriver* ret = new DisplayOSX();
     ret->init();
     return ret;
-
   #endif
 }
 
