@@ -11,20 +11,32 @@ struct VertexIn{
 };
 
 
-struct CBuf{
-  float3 color;
+struct llcb_data{
+  float4x4 view;
+  float4x4 projection;
 };
 
 
-ConstantBuffer<CBuf> cb;
 StructuredBuffer<VertexIn> vertices;
+ConstantBuffer<llcb_data> llcb;
+
+static const float4x4 model = float4x4(
+    1, 0, 0, 0,
+    0, 1, 0, 0,
+    0, 0, 1, 0,
+    0, 0, 0, 1);
 
 
 [shader("vertex")]
 VertexOut vertex_main(VertexIn in){
     VertexOut ret;
-    ret.pos = float4(in.pos, 1.0f);
-    ret.color = cb.color;
+
+    float4x4 vp = mul(llcb.projection, llcb.view);
+    float4 w = mul(model, float4(in.pos, 1.0f));
+    float4 final_pos = mul(vp, w);
+
+    ret.pos = final_pos;
+    ret.color = float3(0.0, 1.0, 0.0);
     return ret;
 }
 
