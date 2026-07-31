@@ -6,10 +6,11 @@ set(osx_src ${src}/platform/macos)
 if(APPLE)
     set(platform_src
       ${osx_src}/display.cpp
+      gk/renderer/render_metal.cpp
+      drivers/metal/layer_adapter.mm
+      drivers/metal/futils.cpp
+      drivers/metal/mtl_helpers.cpp
       # base/drivers/metal/metal_core.cpp
-      # base/drivers/metal/mtl_helpers.cpp
-      # base/drivers/metal/layer_adapter.mm
-      # base/drivers/metal/futils.cpp
     )
 
     # The bridge uses __bridge casts, which require ARC. Scoped to the one
@@ -25,9 +26,8 @@ add_library(juye
   base/escm.cpp
   base/utils.cpp
 
-  # gk/model/prefabs.cpp
+  gk/model/prefabs.cpp
   gk/renderer/render_frontend.cpp
-  gk/renderer/render_metal.cpp
 
   #platform
   ${platform_src}
