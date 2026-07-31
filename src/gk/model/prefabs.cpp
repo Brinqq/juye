@@ -64,6 +64,8 @@ Prefab Prefab::Builder::build() noexcept{
   ret.n_indices = n_indices;
   ret.n_vertices = n_vertices;
   ret.stride = stride;
+  ret.vertice_bytes = stride * n_vertices;
+  ret.indice_bytes = sizeof(uint16_t) * n_indices;
   return ret;
 };
 

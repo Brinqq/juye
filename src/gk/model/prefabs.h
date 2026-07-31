@@ -14,6 +14,8 @@ public:
   uint16_t n_vertices;
   uint16_t n_indices;
   uint16_t stride;
+  size_t vertice_bytes;
+  size_t indice_bytes;
 
   ~Prefab(){}
 
