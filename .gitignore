@@ -1,8 +1,5 @@
-.env/*
 build/*
 external/*
 !external/CMakeLists.txt
 !external/bk
 build_generation.h
-.clangd
-.ds_store
