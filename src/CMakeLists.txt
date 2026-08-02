@@ -26,6 +26,8 @@ add_library(juye
   base/escm.cpp
   base/utils.cpp
 
+  fsystem/image.cpp
+
   gk/model/prefabs.cpp
   gk/renderer/render_frontend.cpp
 
