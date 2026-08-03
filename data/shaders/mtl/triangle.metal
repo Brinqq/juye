@@ -3,8 +3,8 @@ using namespace metal;
 
 struct vertex_main_in{
   float3 pos [[attribute(0)]];
-  float3 normal [[attribute(1)]];
-  float2 uv [[attribute(2)]];
+  float2 uv [[attribute(1)]];
+  float3 normal [[attribute(2)]];
 };
 
 struct vertex_main_out{
