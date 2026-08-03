@@ -23,14 +23,47 @@
 
 
 // NOTE: Some things to think about
+
+// API Facing:
+// - Resource Pools(r)
 //
-// - Command buffers require a cpu allocation and are not pooled like vulkan
-// consider retaining them over frames.
+
+// Resource/memory Managed Components:
+// - Textures
+// - Data Buffers
+// - Residency Sets
+
+// Pipeline Managed components:
+// - Shader
+// - Argument Table
+// - Attachments
+// - Render Encoders
+
+// Fixed State Components:
+// - Samplers
+
+// TBD:
+// - Command Buffers ? Fixed : Pipeline
+// - Command Allocators ? Fixed : Pipeline
+// - Command Queues ? Fixed : Pipeline
 //
-// - Do encoders previous state presist?
-// 
 
 extern void* query_main_display();
+
+
+
+struct resource_pool{
+  MTL::ResidencySet* set;
+
+  bool check_pool(){
+    return set != nullptr;
+  }
+  
+};
+
+#define as_buffer(h) static_cast<MTL::Buffer*>(h)
+#define as_texture(h) static_cast<MTL::Texture*>(h)
+#define as_resource_pool(h) static_cast<resource_pool*>(h)
 
 MTL4::CommandQueue* cq;
 MTL4::CommandBuffer* cb;
@@ -44,9 +77,16 @@ MTL4::ArgumentTable* argument_table;
 MTL::RenderPipelineState* pso;
 MTL::Texture* depth_buf;
 MTL::DepthStencilState* depth_state;
+MTL::ResidencySet* residency_set;
 uint64_t cur_frame = 0;
 
+
+//TODO: Fix before supporting backend multihreading.
+NS::Error* ns_error;
+
 static MTL::SamplerState* sampler_state;
+
+bk::bucket<resource_pool, 5> rpools;
 
 using namespace juye;
 
@@ -59,7 +99,6 @@ int gdi_device::init_driver(){
   if(!window){
     _juye_crashf("GPU driver unable to find a valid output device")
   }
-
 
   // Basic Handles
   device = MTL::CreateSystemDefaultDevice();
@@ -90,7 +129,7 @@ int gdi_device::init_driver(){
    depth_buf = generate_depth_buffer(device, back_buffer->width(), back_buffer->height(), MTL::PixelFormatDepth32Float);
 
    MTL::DepthStencilDescriptor* z_desc = MTL::DepthStencilDescriptor::alloc()->init()->autorelease();
-   z_desc->setDepthCompareFunction(MTL::CompareFunctionGreater);
+   z_desc->setDepthCompareFunction(MTL::CompareFunctionLess);
    z_desc->setDepthWriteEnabled(1);
    depth_state = device->newDepthStencilState(z_desc);
 
@@ -163,11 +202,23 @@ int gdi_device::init_driver(){
   x->setSupportArgumentBuffers(true);
   device->newSamplerState(x);
 
+  auto rdesc = MTL::ResidencySetDescriptor::alloc()->init()->autorelease();
+  residency_set = device->newResidencySet(rdesc, &err);
+  residency_set->addAllocation(llcb);
+  residency_set->addAllocation(transform_buf);
+  residency_set->commit();
+
   pool->release();
   return 1;
 }
 
-gdi_memory gdi_device::allocate_texture(size_t w, size_t h, uint32_t mips){
+gdi_memory gdi_device::allocate_texture(gdi_rpool pool, size_t w, size_t h, uint32_t mips){
+  resource_pool* p  = as_resource_pool(pool);
+
+ if(!p->check_pool()){
+    _juye_crashf("Attempted to allocate texture with invalid resource pool")
+ };
+
   MTL::TextureDescriptor* desc = MTL::TextureDescriptor::alloc()->init();
   desc->setPixelFormat(MTL::PixelFormat::PixelFormatRGBA8Unorm);
   desc->setArrayLength(1);
@@ -180,17 +231,19 @@ gdi_memory gdi_device::allocate_texture(size_t w, size_t h, uint32_t mips){
   desc->setUsage(MTL::TextureUsageShaderRead);
   MTL::Texture* ret = device->newTexture(desc);
   desc->release();
+  p->set->addAllocation(ret);
   return ret;
 }
 
-gdi_memory gdi_device::allocate_memory(void* fill, size_t n_bytes, const gdi_memory_flags flags){
-  void* mem = nullptr;
+gdi_memory gdi_device::allocate_buffer(gdi_rpool pool, size_t n_bytes, const uint64_t flags){
+  resource_pool* p = as_resource_pool(pool);
 
-  if(GDI_MEMORY_LINEAR_BIT){
-    mem = device->newBuffer(n_bytes, MTL::ResourceStorageModeShared);
+  if(!p->check_pool()){
+    _juye_crashf("Attempted to allocate buffer with a invalid resource pool.")
   }
 
-  if(fill){}
+  MTL::Buffer* mem = device->newBuffer(n_bytes, MTL::StorageModeShared);
+  p->set->addAllocation(mem);
   return mem;
 }
 
@@ -211,6 +264,15 @@ void set_constant_buffer(gdi_memory buf){
    
 }
 
+gdi_rpool gdi_device::allocate_resource_pool(){
+  resource_pool* ret =  &rpools.construct();
+  MTL::ResidencySetDescriptor* desc = MTL::ResidencySetDescriptor::alloc()->init();
+  MTL::ResidencySet* set = device->newResidencySet(desc, &ns_error);
+  ret->set = set;
+  desc->release();
+  return ret;
+}
+
 void gdi_device::set_viewport(float w, float h, float n, float f, float x, float y){
   viewport = MTL::Viewport{x, y, w, h, n,f};
 }
@@ -225,7 +287,7 @@ void gdi_device::write_texture(void* src, gdi_memory mem, size_t width, size_t h
   static_cast<MTL::Texture*>(mem)->replaceRegion(reg, mip, 0, src, width * 4, (width * 4) * height);
 }
 
-void gdi_device::write_memory(void* src, gdi_memory dst, size_t n_bytes, size_t offset){
+void gdi_device::write_buffer(void* src, gdi_memory dst, size_t n_bytes, size_t offset){
   memcpy(static_cast<MTL::Buffer*>(dst)->contents(), src, n_bytes);
 }
 
@@ -249,12 +311,21 @@ void gdi_device::submit_frame(){
   next_frame();
 }
 
+void gdi_device::commit_resource_pool(gdi_rpool pool){
+  resource_pool* p = as_resource_pool(pool);
+  if(!p->check_pool()){
+    _juye_crashf("Attempted to commit a invalid resource pool")
+  };
+
+  p->set->commit();
+}
+
 
 uint64_t f = 0;
 
 
 void gdi_device::dummy_draw(void* vertices, void* indices, size_t n_indices, gdi_transform transform, gdi_memory user_cbuf,
-gdi_memory texture){
+gdi_memory texture, gdi_rpool u_pool){
   NS::AutoreleasePool* pool = NS::AutoreleasePool::alloc()->init();
   NS::Error* err = nullptr;
 
@@ -272,12 +343,12 @@ gdi_memory texture){
   att->setTexture(drawable->texture());
   att->setLoadAction(MTL::LoadActionClear);
   att->setStoreAction(MTL::StoreActionStore);
-  att->setClearColor(MTL::ClearColor(0.0f, 0.0f, 0.0f, 1.0));
+  att->setClearColor(MTL::ClearColor(0.10588, 0.12549, 0.12941, 1.0));
   auto* zwrite = dd->depthAttachment();
   zwrite->setTexture(depth_buf);
   zwrite->setLoadAction(MTL::LoadActionClear);
   zwrite->setStoreAction(MTL::StoreActionDontCare);
-  zwrite->setClearDepth(0);
+  zwrite->setClearDepth(1);
   MTL4::RenderCommandEncoder* renderpass_encoder = cb->renderCommandEncoder(dd);
 
   set_viewport(w, h, 0, 1, 0, 0);
@@ -289,18 +360,12 @@ gdi_memory texture){
   argument_table->setTexture(static_cast<MTL::Texture*>(texture)->gpuResourceID(), 0);
   argument_table->setSamplerState(sampler_state->gpuResourceID(), 0);
 
-  auto rdesc = MTL::ResidencySetDescriptor::alloc()->init()->autorelease();
-  auto* rs = device->newResidencySet(rdesc, &err);
-  rs->addAllocation(static_cast<MTL::Buffer*>(vertices));
-  rs->addAllocation(static_cast<MTL::Buffer*>(indices));
-  rs->addAllocation(llcb);
-  rs->addAllocation(transform_buf);
-  rs->addAllocation(static_cast<MTL::Buffer*>(user_cbuf));
-  rs->addAllocation(static_cast<MTL::Buffer*>(texture));
-  rs->commit();
-  cq->addResidencySet(rs);
+  cq->addResidencySet(residency_set);
+  cq->addResidencySet(static_cast<resource_pool*>(u_pool)->set);
   cq->addResidencySet(display_layer->residencySet());
 
+  renderpass_encoder->setFrontFacingWinding(MTL::WindingCounterClockwise);
+  renderpass_encoder->setCullMode(MTL::CullModeBack);
   renderpass_encoder->setViewport(viewport);
   renderpass_encoder->setRenderPipelineState(pso);
   renderpass_encoder->setArgumentTable(argument_table, MTL::RenderStageVertex | MTL::RenderStageFragment);
@@ -318,10 +383,11 @@ gdi_memory texture){
   cq->signalEvent(frame_sync, ++f);
   frame_sync->waitUntilSignaledValue(f, 1000);
 
-  cq->removeResidencySet(rs);
+  cq->removeResidencySet(residency_set);
+  cq->removeResidencySet(static_cast<resource_pool*>(u_pool)->set);
   cq->removeResidencySet(display_layer->residencySet());
+
   dd->release();
-  rs->release();
   pool->release();
 }
 

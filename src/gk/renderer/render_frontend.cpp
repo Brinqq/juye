@@ -87,19 +87,23 @@ struct gk_constant_buffer{
   uint32_t transform_offset;
 };
 
+gdi_rpool res_pool;
+
 gk_draw_data construct_drawable(const Prefab& fab){
   gk_draw_data ret{};
+  res_pool  = driver.allocate_resource_pool();
 
   ret.n_indices = fab.n_indices;
-  ret.ibo = driver.allocate_memory(nullptr, fab.indice_bytes, GDI_MEMORY_LINEAR_BIT);
-  driver.write_memory(fab.indices, ret.ibo, fab.indice_bytes, 0);
+  ret.ibo = driver.allocate_buffer(res_pool, fab.indice_bytes, 0);
+  driver.write_buffer(fab.indices, ret.ibo, fab.indice_bytes, 0);
 
-  ret.vbo = driver.allocate_memory(nullptr, fab.vertice_bytes, GDI_MEMORY_LINEAR_BIT);
-  driver.write_memory(fab.vertices, ret.vbo, fab.vertice_bytes, 0);
+  ret.vbo = driver.allocate_buffer(res_pool, fab.vertice_bytes, 0);
+  driver.write_buffer(fab.vertices, ret.vbo, fab.vertice_bytes, 0);
 
   auto n = gk_constant_buffer{0};
-  cbuf = driver.allocate_memory(nullptr, sizeof(gk_constant_buffer), GDI_MEMORY_LINEAR_BIT);
-  driver.write_memory(&n, cbuf, sizeof(gk_constant_buffer), 0);
+
+  cbuf = driver.allocate_buffer(res_pool, sizeof(gk_constant_buffer), 0);
+  driver.write_buffer(&n, cbuf, sizeof(gk_constant_buffer), 0);
 
   fs_image_data image = fs_load_image("juye/data/textures/nx.png");
 
@@ -108,10 +112,11 @@ gk_draw_data construct_drawable(const Prefab& fab){
   }
 
 
-  ret.texture = driver.allocate_texture(image.width, image.height, 1);
+  ret.texture = driver.allocate_texture(res_pool, image.width, image.height, 1);
   driver.write_texture(image.data, ret.texture, image.width, image.width, 0);
   fs_unload_image(image);
 
+  driver.commit_resource_pool(res_pool);
   return ret;
 }
 
@@ -131,7 +136,7 @@ void render_fe_tick(){
   m1 = a;
   driver.write_transform(t1, glm::value_ptr(m1));
   gk_draw_data d = drawlist[0];
-  driver.dummy_draw(d.vbo, d.ibo, d.n_indices, t1, cbuf, d.texture);
+  driver.dummy_draw(d.vbo, d.ibo, d.n_indices, t1, cbuf, d.texture, res_pool);
   driver.submit_frame();
   
 }
