@@ -2,14 +2,13 @@ set(src ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(osx_src ${src}/platform/macos)
 
-
 if(APPLE)
     set(platform_src
       ${osx_src}/display.cpp
-      gk/renderer/render_metal.cpp
-      drivers/metal/layer_adapter.mm
-      drivers/metal/futils.cpp
-      drivers/metal/mtl_helpers.cpp
+      graphick/renderer/render_metal.cpp
+      drivers/gkhi/metal/layer_adapter.mm
+      drivers/gkhi/metal/futils.cpp
+      drivers/gkhi/metal/mtl_helpers.cpp
       # base/drivers/metal/metal_core.cpp
     )
 
@@ -20,20 +19,20 @@ if(APPLE)
     )
 endif()
 
-add_library(juye
-  #base
+add_executable(juye
   base/entry.cpp
   base/escm.cpp
   base/utils.cpp
-
+  base/cmdline.cpp
+  base/client.cpp
   fsystem/image.cpp
-
-  gk/model/prefabs.cpp
-  gk/renderer/render_frontend.cpp
+  graphick/model/prefabs.cpp
+  graphick/renderer/render_frontend.cpp
 
   #platform
   ${platform_src}
 )
+
 
 target_include_directories(juye PUBLIC
   ../include
@@ -73,7 +72,20 @@ if(APPLE)
   )
 endif()
 
-target_link_libraries(juye PUBLIC
+target_link_libraries(juye PRIVATE
+  common
+)
+
+target_link_directories(juye PRIVATE
+ ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
+ ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}
+)
+
+add_library(common STATIC 
+  common/test.cpp
+)
+
+target_link_libraries(common PUBLIC
   bk
 )
 
@@ -81,3 +93,4 @@ target_link_directories(juye PRIVATE
  ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
  ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}
 )
+
