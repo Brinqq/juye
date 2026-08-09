@@ -1,0 +1,3 @@
+[submodule "extern/contrib/bk"]
+	path = extern/contrib/bk
+	url = https://github.com/Brinqq/bcl.git
