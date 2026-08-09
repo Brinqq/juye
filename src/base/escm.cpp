@@ -1,6 +1,8 @@
 #include "global.h"
+#include "cmdline.h"
+#include "client.h"
 #include "drivers/display.h"
-#include "gk/renderer/renderer.h"
+#include "graphick/renderer/renderer.h"
 #include "input/actions.h"
 
 
@@ -14,7 +16,6 @@ void* query_main_display(){
 }
 
 
-namespace{
 using namespace juye;
 
 DisplayDriver* create_window(){
@@ -27,7 +28,8 @@ DisplayDriver* create_window(){
   #endif
 }
 
-void main_loop(){
+static void main_loop(){
+  
   while(win->is_running()){
     win->update();
     render_fe_tick();
@@ -35,17 +37,15 @@ void main_loop(){
   };
 }
 
-}//namespace anon
 
-using namespace juye;
-
-int engine_entry(){
+int engine_entry(cmdline_config config){
+  client_load_dyn(config.client_dll.c_str());
+  client_init();
+  
   win = create_window();
   render_fe_begin();
   main_loop();
-
   render_fe_end();
-
   printf("Engine exited successfully!\n");
   return 0;
 }
