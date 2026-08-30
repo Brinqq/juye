@@ -1,7 +1,7 @@
 #include "renderer.h"
-#include "adapter.h"
-#include "graphick/model/prefabs.h"
+#include "drivers/gkhi/interface.h"
 #include "fsystem/file.h"
+#include "graphick/model/prefabs.h"
 #include "base/global.h"
 
 #include "glm/glm.hpp"
@@ -97,7 +97,7 @@ gk_draw_data construct_drawable(const Prefab& fab){
   driver.write_buffer(fab.vertices, ret.vbo, fab.vertice_bytes, 0);
   auto n = gk_constant_buffer{0};
   driver.write_buffer(&n, cbuf, sizeof(gk_constant_buffer), 0);
-  fs_image_data image = fs_load_image("data/textures/def.png");
+  fs_image_data image = fs_load_image("data/builtin_materials/default/image.png");
 
   if(!image.data){
     _juye_crashf("failed to load image");
@@ -128,14 +128,12 @@ void render_fe_tick(){
   float* p = glm::value_ptr(scene.camera.projection);
   float* v = glm::value_ptr(scene.camera.view);
   driver.set_projection(v, p);
-  
   glm::mat4 a = glm::rotate(m1, 0.01f, glm::vec3(1.0f, 1.0f, 1.0f));
   m1 = a;
   driver.write_transform(t1, glm::value_ptr(m1));
   gk_draw_data d = drawlist[0];
   driver.dummy_draw(d.vbo, d.ibo, d.n_indices, t1, cbuf, d.texture, res_pool);
   driver.submit_frame();
-  
 }
 
 void render_fe_end(){

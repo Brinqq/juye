@@ -10,10 +10,8 @@
 #include "drivers/gkhi/metal/metal.h"
 #include "drivers/gkhi/metal/mtl_helpers.h"
 #include "drivers/gkhi/metal/layer_adapter.h"
-#include "drivers/gkhi/metal//futils.h"
-#include "graphick/renderer/imst.h"
-#include "graphick/renderer/adapter.h"
-
+#include "drivers/gkhi/metal/futils.h"
+#include "drivers/gkhi/interface.h"
 #include "bk/containers/bucket.h"
 
 #include "Metal/Metal.hpp"
@@ -64,6 +62,11 @@
 //  possible solution would be a transform buf for pool and a index pushed through a constant buffer for a draw.
 
 extern void* query_main_display();
+
+struct llcb_t{
+  float view[16];
+  float proj[16];
+};
 
 
 
@@ -130,6 +133,13 @@ int gdi_device::init_driver(){
   display_layer = (CA::MetalLayer*)juye::metal_layer_attach(cfg);
 
 
+
+  
+  MTL::HeapDescriptor* h = MTL::HeapDescriptor::alloc()->init()->autorelease();
+  h->setCpuCacheMode(MTL::CPUCacheModeDefaultCache);
+  h->setStorageMode(MTL::StorageModeShared);
+  MTL::Heap* heap = device->newHeap(h);
+
   cq = device->newMTL4CommandQueue();
   cb = device->newCommandBuffer();
   ca[0] = device->newCommandAllocator();
@@ -153,8 +163,8 @@ int gdi_device::init_driver(){
 
 
    // NOTE: Careful with alingment issues when appending to the buffer.
-  llcb = device->newBuffer(sizeof(mtl_llcb), MTL::ResourceStorageModeShared);
-  memset(llcb->contents(), 0, sizeof(mtl_llcb));
+  llcb = device->newBuffer(sizeof(llcb_t), MTL::ResourceStorageModeShared);
+  memset(llcb->contents(), 0, sizeof(llcb_t));
 
   MTL4::ArgumentTableDescriptor* argument_desc = MTL4::ArgumentTableDescriptor::alloc()->init()->autorelease();
   argument_desc->setMaxBufferBindCount(31);
@@ -177,7 +187,7 @@ int gdi_device::init_driver(){
   pipeline_desc->colorAttachments()->object(0)->setPixelFormat(MTL::PixelFormatBGRA8Unorm); 
 
 //   // - Shader
-  library = device->newLibrary(MTLSTR("/Users/brinq/.dev/projects/solar-sim/build/bin/data/triangle.metallib"),&err);
+  library = device->newLibrary(MTLSTR("/Users/brinq/.dev/projects/solar-sim/juye/build/bin/data/triangle.metallib"),&err);
   if (!library) {
     printf("newLibrary failed: %s\n",
            err ? err->localizedDescription()->utf8String() : "(no error object)");

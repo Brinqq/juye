@@ -1,8 +1,10 @@
 set(src ${CMAKE_CURRENT_SOURCE_DIR})
-
 set(osx_src ${src}/platform/macos)
+set(CMAKE_CXX_STANDARD 20)
 
 if(APPLE)
+  enable_language(OBJC)
+  enable_language(OBJCXX) # layer_adapter.mm
     set(platform_src
       ${osx_src}/display.cpp
       graphick/renderer/render_metal.cpp
@@ -17,6 +19,7 @@ if(APPLE)
     set_source_files_properties(core/drivers/metal/layer_adapter.mm
       PROPERTIES COMPILE_OPTIONS "-fobjc-arc"
     )
+
 endif()
 
 add_executable(juye
