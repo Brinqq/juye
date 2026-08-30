@@ -1,6 +1,2 @@
 build/*
-external/*
-!external/CMakeLists.txt
-!external/contrib/*
-!external/vendor/*
 build_generation.h
