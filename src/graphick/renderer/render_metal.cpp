@@ -132,14 +132,6 @@ int gdi_device::init_driver(){
   juye::LayerConfig cfg{window, device, MTL::PixelFormatBGRA8Unorm, 2, false};
   display_layer = (CA::MetalLayer*)juye::metal_layer_attach(cfg);
 
-
-
-  
-  MTL::HeapDescriptor* h = MTL::HeapDescriptor::alloc()->init()->autorelease();
-  h->setCpuCacheMode(MTL::CPUCacheModeDefaultCache);
-  h->setStorageMode(MTL::StorageModeShared);
-  MTL::Heap* heap = device->newHeap(h);
-
   cq = device->newMTL4CommandQueue();
   cb = device->newCommandBuffer();
   ca[0] = device->newCommandAllocator();
@@ -175,15 +167,14 @@ int gdi_device::init_driver(){
 // -- Pipeline state
   auto* pipeline_desc = MTL4::RenderPipelineDescriptor::alloc()->init()->autorelease();
 
-
   auto* vertex_desc = MTL::VertexDescriptor::alloc()->init()->autorelease();
   juye::mtl_append_vertex_attribute(*vertex_desc, 0, 0, 28, MTL::VertexFormatFloat3);
   juye::mtl_append_vertex_attribute(*vertex_desc, 1, sizeof(float) * 3, 28, MTL::VertexFormatFloat3);
   juye::mtl_append_vertex_attribute(*vertex_desc, 2, sizeof(float) * 6, 28, MTL::VertexFormatFloat2);
   vertex_desc->layouts()->object(28)->setStride(8 * sizeof(float));
   vertex_desc->layouts()->object(28)->setStepFunction(MTL::VertexStepFunctionPerVertex);
-  pipeline_desc->setVertexDescriptor(vertex_desc);
 
+  pipeline_desc->setVertexDescriptor(vertex_desc);
   pipeline_desc->colorAttachments()->object(0)->setPixelFormat(MTL::PixelFormatBGRA8Unorm); 
 
 //   // - Shader
@@ -232,6 +223,7 @@ int gdi_device::init_driver(){
   residency_set->addAllocation(llcb);
   residency_set->addAllocation(transform_buf);
   residency_set->commit();
+  set = device->newResidencySet(rdesc, &err);
 
   pool->release();
   return 1;
@@ -313,10 +305,6 @@ void gdi_device::write_texture(void* src, gdi_memory mem, size_t width, size_t h
   static_cast<MTL::Texture*>(mem)->replaceRegion(reg, mip, 0, src, width * 4, (width * 4) * height);
 }
 
-void gdi_device::write_buffer(void* src, gdi_memory dst, size_t n_bytes, size_t offset){
-  memcpy(static_cast<MTL::Buffer*>(dst)->contents(), src, n_bytes);
-}
-
 // This function sets redundant state and is unideal for anything other
 // than iteration speed and testing.
 void gdi_device::execute_single_draw(){
@@ -378,6 +366,7 @@ gdi_memory texture, gdi_rpool u_pool){
   MTL4::RenderCommandEncoder* renderpass_encoder = cb->renderCommandEncoder(dd);
 
   set_viewport(w, h, 0, 1, 0, 0);
+
   argument_table->setAddress(static_cast<MTL::Buffer*>(vertices)->gpuAddress(), 28);
   argument_table->setAddress(llcb->gpuAddress(), 0);
   argument_table->setAddress(transform_buf->gpuAddress(), 1);
@@ -386,7 +375,10 @@ gdi_memory texture, gdi_rpool u_pool){
   argument_table->setSamplerState(sampler_state->gpuResourceID(), 0);
 
   cq->addResidencySet(residency_set);
-  cq->addResidencySet(static_cast<resource_pool*>(u_pool)->set);
+
+  set->commit();
+  cq->addResidencySet(set);
+
   cq->addResidencySet(display_layer->residencySet());
 
   renderpass_encoder->setFrontFacingWinding(MTL::WindingCounterClockwise);
@@ -409,8 +401,9 @@ gdi_memory texture, gdi_rpool u_pool){
   frame_sync->waitUntilSignaledValue(f, 1000);
 
   cq->removeResidencySet(residency_set);
-  cq->removeResidencySet(static_cast<resource_pool*>(u_pool)->set);
+  // cq->removeResidencySet(static_cast<resource_pool*>(u_pool)->set);
   cq->removeResidencySet(display_layer->residencySet());
+  cq->removeResidencySet(set);
 
   dd->release();
   pool->release();

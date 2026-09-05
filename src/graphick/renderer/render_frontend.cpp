@@ -2,11 +2,15 @@
 #include "drivers/gkhi/interface.h"
 #include "fsystem/file.h"
 #include "graphick/model/prefabs.h"
+
 #include "base/global.h"
+#include "base/memory.h"
 
 #include "glm/glm.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+
+#include "bk/memory/bkmemory.h"
 
 
 
@@ -53,10 +57,18 @@ private:
 };
 
 struct gk_draw_data{
-  gdi_memory ibo;
-  gdi_memory vbo;
-  gdi_memory texture;
+  gdi_resource texture;
+  gdi_resource indices;
+  gdi_resource vertices;
+  gdi_resource cbuf;
+  gdi_memory buf;
   size_t n_indices;
+};
+
+struct gk_texture_batch{
+  std::vector<gdi_resource> handles;
+  gdi_memory memory;
+  size_t cursor;
 };
 
 //======================================================================
@@ -74,13 +86,17 @@ struct gk_draw_data{
 
 namespace juye{
 
-gdi_device driver{};
 scene scene{};
+
+gdi_device driver{};
+gdi_encoder encoder{};
+
 std::vector<gk_draw_data> drawlist;
 
 gdi_transform t1;
 glm::mat4 m1;
-gdi_memory cbuf;
+
+gk_texture_batch textures;
 
 struct gk_constant_buffer{
   uint32_t transform_offset;
@@ -90,41 +106,118 @@ gdi_rpool res_pool;
 
 gk_draw_data construct_drawable(const Prefab& fab){
   gk_draw_data ret{};
+
+  ret.texture = textures.handles[0];
   ret.n_indices = fab.n_indices;
-  ret.ibo = driver.allocate_buffer(res_pool, fab.indice_bytes, 0);
-  driver.write_buffer(fab.indices, ret.ibo, fab.indice_bytes, 0);
-  ret.vbo = driver.allocate_buffer(res_pool, fab.vertice_bytes, 0);
-  driver.write_buffer(fab.vertices, ret.vbo, fab.vertice_bytes, 0);
+  size_t geometry_bytes = fab.vertice_bytes + fab.indice_bytes;
+  size_t cbuf_bytes = sizeof(gk_constant_buffer);
+
+  // Create memory
+  gdi_allocation_desc d_memory;
+  d_memory.n_bytes = 2 * MiB;
+  d_memory.usage = gdi_memory_usage_type::linear;
+  d_memory.type = gdi_memory_type::host_write;
+  gdi_memory memory = driver.allocate_memory(d_memory);
+  ret.buf = memory;
+  //----------------------
+
+  gdi_buffer_desc d_resource{};
+  size_t cursor = 0;
+
+  // vertex
+  d_resource.n_bytes = fab.vertice_bytes;
+  ret.vertices = driver.create_buffer(memory, d_resource, cursor);
+  cursor += fab.vertice_bytes;
+
+  // index
+  d_resource.n_bytes = fab.indice_bytes;
+  ret.indices = driver.create_buffer(memory, d_resource, cursor);
+  cursor += fab.indice_bytes;
+
+  //constant buffer
   auto n = gk_constant_buffer{0};
-  driver.write_buffer(&n, cbuf, sizeof(gk_constant_buffer), 0);
-  fs_image_data image = fs_load_image("data/builtin_materials/default/image.png");
+  cursor = bk::align_p2(cursor, 256);
+  d_resource.n_bytes = sizeof(gk_constant_buffer);
+  ret.cbuf = driver.create_buffer(memory, d_resource, cursor);
+  cursor += sizeof(gk_constant_buffer);
 
-  if(!image.data){
-    _juye_crashf("failed to load image");
-  }
+  void* vbo = driver.map_resource(ret.vertices, gdi_resource_type::buffer);
+  void* ibo = driver.map_resource(ret.indices, gdi_resource_type::buffer);
+  void* cbuf = driver.map_resource(ret.cbuf, gdi_resource_type::buffer);
 
-
-  ret.texture = driver.allocate_texture(res_pool, image.width, image.height, 1);
-  driver.write_texture(image.data, ret.texture, image.width, image.width, 0);
-  fs_unload_image(image);
-
-  driver.commit_resource_pool(res_pool);
+  memcpy(ibo, fab.indices, fab.indice_bytes);
+  memcpy(vbo, fab.vertices, fab.vertice_bytes);
+  memcpy(cbuf, &n, sizeof(gk_constant_buffer));
+  
   return ret;
+}
+
+void create_texture_batch(){
+  gdi_allocation_desc d_alloc{};
+  d_alloc.n_bytes = 100 * MiB;
+  d_alloc.type = gdi_memory_type::host_write;
+  d_alloc.usage = gdi_memory_usage_type::texel;
+  textures.memory = driver.allocate_memory(d_alloc);
+
+  textures.cursor = 0;
+
+  fs_image_data image = fs_load_image("data/builtin_materials/default/image.png");
+  if(!image.data){ _juye_crashf("failed to load image");}
+
+  gdi_texture_desc d_texture{};
+  d_texture.width = image.width;
+  d_texture.height = image.height;
+  d_texture.depth = 1;
+  d_texture.mips = 1;
+
+  gdi_resource tex = driver.create_texture(textures.memory, d_texture, textures.cursor);
+  textures.cursor += image.bytes;
+
+  driver.write_texture(image.data, tex, image.width, image.height, 0);
+  textures.handles.push_back(tex);
+  fs_unload_image(image);
 }
 
 void render_fe_begin(){
   driver.init_driver();
+  create_texture_batch();
 
-  res_pool  = driver.allocate_resource_pool();
-  cbuf = driver.allocate_buffer(res_pool, sizeof(gk_constant_buffer), 0);
-
+  res_pool = driver.allocate_resource_pool();
+  encoder = driver.create_encoder();
+  //
   drawlist.push_back(construct_drawable(scene.cube_default));
   m1 = glm::mat4(1);
   t1 = driver.generate_transform();
 }
 
 
+void sudo(){
+  // auto tex = driver.get_display_texture();
+  //
+  encoder.reset();// we store the actual memory in a sep structure so no need to sync these.
+  encoder.record();
+  //
+  // Renderpass structure
+  // encoder.set_renderpass();
+  
+  // Arugment structure
+  // encoder.set_resource_table();
+  
+  // // state(cull mode, pipeline, winding etc)
+  // encoder.set_pso();
+   gdi_viewport vp{1920, 1080, 0, 0, 0, 1.0};
+   encoder.set_viewport(vp);
+  
+  // Draw
+  
+  // // submission, frame advance, syc, etc...
+  // driver.submit(encoder);
+  //
+}
+
 void render_fe_tick(){
+
+
   float* p = glm::value_ptr(scene.camera.projection);
   float* v = glm::value_ptr(scene.camera.view);
   driver.set_projection(v, p);
@@ -132,7 +225,7 @@ void render_fe_tick(){
   m1 = a;
   driver.write_transform(t1, glm::value_ptr(m1));
   gk_draw_data d = drawlist[0];
-  driver.dummy_draw(d.vbo, d.ibo, d.n_indices, t1, cbuf, d.texture, res_pool);
+  driver.dummy_draw(d.vertices, d.indices, d.n_indices, t1, d.cbuf, d.texture, res_pool);
   driver.submit_frame();
 }
 
