@@ -11,6 +11,9 @@ if(APPLE)
       drivers/gkhi/metal/layer_adapter.mm
       drivers/gkhi/metal/futils.cpp
       drivers/gkhi/metal/mtl_helpers.cpp
+      drivers/gkhi/metal/memory.cpp
+      drivers/gkhi/metal/resources.cpp
+      drivers/gkhi/metal/encoder.cpp
       # base/drivers/metal/metal_core.cpp
     )
 
