@@ -44,13 +44,17 @@
 // void unlock_resource()
 
 
-#define __JUYE_METAL 1
+
+#define __JUYE_VULKAN 1
 
 #if __JUYE_METAL
+#include "types.h"
 #include "metal/metal.h"
 #endif
 
 #if __JUYE_VULKAN
+#include "types.h"
+#include "VK/vulk.h"
 #endif
 
 
