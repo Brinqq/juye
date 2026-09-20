@@ -1,10 +1,9 @@
-#include "drivers/display.h"
+#include "platform/display.h"
 #include "base/global.h"
 #include "drivers/keyboard.h"
 #include "GLFW/glfw3.h"
 
 namespace juye{
-
 
 void glfw_keyboard_callback(GLFWwindow* h, int key, int scan, int action, int mods){
 }

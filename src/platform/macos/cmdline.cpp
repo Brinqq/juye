@@ -1,13 +1,11 @@
-#include "cmdline.h"
-#include <stdio.h>
-#include <string.h>
+#include "platform/cmdline.h"
+
+using namespace juye;
+
 
 const char* main_proc_cmp = "-proc";
 
-namespace juye{
-
-
-cmdline_config process_arguments(int n_args, char* args[]){
+cmdline_config plt_process_arguments(int n_args, char* args[]){
   cmdline_config ret{};
 
   for(int i = 0; i < n_args; i++){
@@ -18,6 +16,5 @@ cmdline_config process_arguments(int n_args, char* args[]){
   }
 
   return ret;
-}
-
+  
 }
