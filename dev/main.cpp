@@ -1,9 +1,17 @@
 #include <stdio.h>
 
+#if _WIN32
+#define _export _declspec(dllexport)
+#endif
+
+#if __APPLE__
+#define _export __attribute__((visibility("default")))
+#endif
+
 
 extern "C"{
 
-__attribute__((visibility("default"))) void client_main(){
+_export void client_main(){
   printf("Hello, from client main\n");
 }
 
