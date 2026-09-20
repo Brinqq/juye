@@ -1,6 +1,10 @@
 set(src ${CMAKE_CURRENT_SOURCE_DIR})
 set(osx_src ${src}/platform/macos)
+set(win32_src ${src}/platform/windows)
 set(CMAKE_CXX_STANDARD 20)
+set(win_main)
+
+
 
 if(APPLE)
   enable_language(OBJC)
@@ -25,11 +29,22 @@ if(APPLE)
 
 endif()
 
+if(WIN32)
+  set(win_main WIN32)
+  set(platform_src
+    drivers/gkhi/VK/encoder.cpp
+    drivers/gkhi/VK/resources.cpp
+    drivers/gkhi/VK/tm.cpp
+    ${win32_src}/display.cpp
+    ${win32_src}/cmdline.cpp
+  )
+endif()
+
 add_executable(juye
+  ${win_main}
   base/entry.cpp
   base/escm.cpp
   base/utils.cpp
-  base/cmdline.cpp
   base/client.cpp
   fsystem/image.cpp
   graphick/model/prefabs.cpp
@@ -56,6 +71,7 @@ target_link_libraries(juye PRIVATE
   stb
   assimp
   metal-cpp
+  vulkan
 )
 
 #tmp
