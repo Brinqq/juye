@@ -1,7 +1,6 @@
 #pragma once
 #include "base/global.h"
 
-
 struct gdi_projection{
   float view[16];
   float proj[16];
@@ -118,6 +117,7 @@ private:
 
 
 };
+
 typedef uint32_t gdi_flags;
 typedef void* gdi_memory;
 typedef void* gdi_resource;
