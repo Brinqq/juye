@@ -91,7 +91,7 @@ scene scene{};
 gdi_device driver{};
 gdi_encoder encoder{};
 
-std::vector<gk_draw_data> drawlist;
+std::vector<gk_draw_data> drawlist{};
 
 gdi_transform t1;
 glm::mat4 m1;
@@ -145,9 +145,9 @@ gk_draw_data construct_drawable(const Prefab& fab){
   void* ibo = driver.map_resource(ret.indices, gdi_resource_type::buffer);
   void* cbuf = driver.map_resource(ret.cbuf, gdi_resource_type::buffer);
 
-  memcpy(ibo, fab.indices, fab.indice_bytes);
-  memcpy(vbo, fab.vertices, fab.vertice_bytes);
-  memcpy(cbuf, &n, sizeof(gk_constant_buffer));
+  // memcpy(ibo, fab.indices, fab.indice_bytes);
+  // memcpy(vbo, fab.vertices, fab.vertice_bytes);
+  // memcpy(cbuf, &n, sizeof(gk_constant_buffer));
   
   return ret;
 }
@@ -183,9 +183,10 @@ void render_fe_begin(){
   create_texture_batch();
 
   res_pool = driver.allocate_resource_pool();
-  encoder = driver.create_encoder();
-  //
+  // encoder = driver.create_encoder();
+  
   drawlist.push_back(construct_drawable(scene.cube_default));
+
   m1 = glm::mat4(1);
   t1 = driver.generate_transform();
 }
@@ -193,10 +194,10 @@ void render_fe_begin(){
 
 void sudo(){
   // auto tex = driver.get_display_texture();
-  //
-  encoder.reset();// we store the actual memory in a sep structure so no need to sync these.
-  encoder.record();
-  //
+  
+  // encoder.reset();// we store the actual memory in a sep structure so no need to sync these.
+  // encoder.record();
+  
   // Renderpass structure
   // encoder.set_renderpass();
   
@@ -205,8 +206,8 @@ void sudo(){
   
   // // state(cull mode, pipeline, winding etc)
   // encoder.set_pso();
-   gdi_viewport vp{1920, 1080, 0, 0, 0, 1.0};
-   encoder.set_viewport(vp);
+   // gdi_viewport vp{1920, 1080, 0, 0, 0, 1.0};
+   // encoder.set_viewport(vp);
   
   // Draw
   
@@ -216,8 +217,6 @@ void sudo(){
 }
 
 void render_fe_tick(){
-
-
   float* p = glm::value_ptr(scene.camera.projection);
   float* v = glm::value_ptr(scene.camera.view);
   driver.set_projection(v, p);
